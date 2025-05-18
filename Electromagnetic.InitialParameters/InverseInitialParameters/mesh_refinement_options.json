@@ -1,0 +1,9 @@
+﻿{
+  "MaxSubdivisionLevel": 5,
+  "MinCellSizeFraction": 0.1,
+  "MaxCellSizeFraction": 0.5,
+  "ResidualThresholdRefine": 1e-16,
+  "ResidualThresholdMerge": 1e-8,
+  "FunctionalImprovementRatio": 100.0,
+  "AdaptiveTriggerTolerance": 1e-13
+}

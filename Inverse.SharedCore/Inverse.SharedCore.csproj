@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Electromagnetic.Common\Electromagnetic.Common.csproj" />
+      <ProjectReference Include="..\Direct.Core\Direct.Core.csproj" />
+      <ProjectReference Include="..\Inverse.SharedDTO\Inverse.SharedDTO.csproj" />
+    </ItemGroup>
+
+</Project>

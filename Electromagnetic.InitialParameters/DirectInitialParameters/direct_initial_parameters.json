@@ -1,0 +1,56 @@
+{
+  "meshParameters": {
+    "xCenterCoordinate": 0,
+    "yCenterCoordinate": 0,
+    "zCenterCoordinate": -10,
+    "xStepToBounds": 10,
+    "yStepToBounds": 10,
+    "zStepToBounds": 10
+  },
+  "splittingParameters": {
+    "xSplittingCoefficient": 3,
+    "ySplittingCoefficient": 3,
+    "zSplittingCoefficient": 3,
+    "xMultiplyCoefficient": 1,
+    "yMultiplyCoefficient": 1,
+    "zMultiplyCoefficient": 1
+  },
+  "additionParameters": {
+    "muCoefficient": 1.2566e-6,
+    "gammaCoefficient": 1,
+    "boundaryCondition": 0
+  },
+  "strataList": [
+    {
+      "positioning": {
+        "centerCoordinate": {
+          "x": -3,
+          "y": 3,
+          "z": -15
+        },
+        "boundsDistance": {
+          "x": 3,
+          "y": 3,
+          "z": 5
+        }
+      },
+      "mu": 1.2566e-3
+    }
+  ],
+  "currentSource": {
+    "start": {
+      "x": -10,
+      "y": -10,
+      "z": 0
+    },
+    "end": {
+      "x": 10,
+      "y": 10,
+      "z": 0
+    },
+    "amperage": 2,
+    "segments": 3
+  },
+  "sensors": [
+  ]
+}

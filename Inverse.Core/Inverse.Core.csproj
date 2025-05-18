@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Direct.Core\Direct.Core.csproj" />
+      <ProjectReference Include="..\Inverse.BornApproximation\Inverse.BornApproximation.csproj" />
+      <ProjectReference Include="..\Inverse.GaussNewton\Inverse.GaussNewton.csproj" />
+    </ItemGroup>
+
+</Project>

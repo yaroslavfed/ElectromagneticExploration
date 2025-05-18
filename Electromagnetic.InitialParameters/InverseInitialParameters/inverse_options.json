@@ -1,0 +1,18 @@
+﻿{
+  "FunctionalThreshold": 0.01,
+  "Lambda": 1e-8,
+  "MinLambda": 1e-12,
+  "LambdaDecay": 0.7,
+  "UseTikhonovFirstOrder": true,
+  "UseTikhonovSecondOrder": false,
+  "SecondOrderRegularizationLambdaMultiplier": 5.0,
+  "AutoAdjustRegularization": true,
+  "RelativeTolerance": 1e-12,
+  "MaxIterations": 50000,
+  "SmoothingActivationThreshold": 0,
+  "DynamicSmoothingActivationFraction": 0.01,
+  "GradientThreshold": 5.0,
+  "SmoothingDisableThreshold": 1e-11,
+  "MinSmoothingIterations": 300,
+  "FunctionalGrowthTolerance": 0.01
+}
