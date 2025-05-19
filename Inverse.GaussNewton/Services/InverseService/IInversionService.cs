@@ -11,7 +11,7 @@ public interface IInversionService
     /// <param name="modelValues">Значения аномалий от текущей модели.</param>
     /// <param name="observedValues">Наблюдённые значения.</param>
     /// <param name="jacobianRaw">Матрица Якобиана (m x n).</param>
-    /// <param name="initialParameters">Текущие параметры модели (мю).</param>
+    /// <param name="parameters">Текущие параметры модели (мю).</param>
     /// <param name="options">Параметры инверсии.</param>
     /// <param name="iterationNumber">Номер текущей итерации.</param>
     /// <param name="effectiveLambda">Фактическое значение регуляризации (λ), применённое на итерации.</param>
@@ -21,7 +21,7 @@ public interface IInversionService
         double[] modelValues,
         double[] observedValues,
         double[,] jacobian,
-        double[] initialParameters,
+        double[] parameters,
         InverseOptions options,
         int iterationNumber,
         out double effectiveLambda

@@ -24,8 +24,8 @@
     {
       "positioning": {
         "centerCoordinate": {
-          "x": -3,
-          "y": 3,
+          "x": 0,
+          "y": 0,
           "z": -15
         },
         "boundsDistance": {

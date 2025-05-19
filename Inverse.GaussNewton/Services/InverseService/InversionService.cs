@@ -14,28 +14,27 @@ public class InversionService : IInversionService
         double[] modelValues,
         double[] observedValues,
         double[,] jacobianRaw,
-        double[] initialParameters,
+        double[] parameters,
         InverseOptions options,
         int iterationNumber,
         out double effectiveLambda
     )
     {
-        int n = initialParameters.Length;
+        int n = parameters.Length;
 
-        // 1. Вычисляем вектор невязки r = ε_observed - ε_model = невязка между измерениями и модельным откликом
+        // Вычисляем вектор невязки r = eps_observed - eps_model = невязка между измерениями и модельным откликом
         var residual = Vector<double>.Build.DenseOfEnumerable(
             observedValues.Zip(modelValues, (obs, calc) => obs - calc)
         );
-
-        // 1. Преобразуем матрицу Якобиана в Math.NET
+        
         var J = Matrix<double>.Build.DenseOfArray(jacobianRaw);
 
-        // 2. Вычисляем A = J^T * J и b = J^T * r
+        // Вычисляем A = J^T * J и b = J^T * r
         var JT = J.Transpose();
         var JTJ = JT * J;
         var JTr = JT * residual;
 
-        // 3. Вычисляем лямбду с учётом динамического затухания
+        // Вычисляем лямбду с учётом динамического затухания
         double baseLambda = options.Lambda;
         effectiveLambda = baseLambda;
 
@@ -45,29 +44,29 @@ public class InversionService : IInversionService
             effectiveLambda = Math.Max(effectiveLambda, options.MinLambda);
         }
 
-        // 4. Добавляем регуляризацию на величину μ (Tikhonov I)
+        // Добавляем регуляризацию на величину mu (Тихонов 1)
         if (options.UseTikhonovFirstOrder)
         {
             for (int i = 0; i < n; i++)
                 JTJ[i, i] += effectiveLambda;
         }
 
-        // 5. Добавляем сглаживающую регуляризацию по кривизне μ (Tikhonov II)
+        // Добавляем сглаживающую регуляризацию по кривизне mu (Тихонов 2)
         if (options.UseTikhonovSecondOrder)
         {
             double gamma = effectiveLambda * options.SecondOrderRegularizationLambdaMultiplier;
             AddTikhonovSecondOrderRegularization(JTJ, mesh, gamma);
         }
 
-        // 6. Решаем систему нормальных уравнений
+        // Решаем СЛАУ
         var delta = JTJ.Solve(JTr);
 
-        // 7. Обновляем параметры модели
-        return initialParameters.Zip(delta, (p, d) => p + d).ToArray();
+        // Обновляем параметры модели
+        return parameters.Zip(delta, (p, d) => p + d).ToArray();
     }
 
     /// <summary>
-    /// Добавляет регуляризацию второго порядка по Вагину: G * mu
+    /// Добавляет регуляризацию второго порядка G * mu
     /// </summary>
     /// <param name="A">Матрица A = J^T J, в которую добавляется G</param>
     /// <param name="mesh">Сетка с элементами и их геометрией</param>
