@@ -22,9 +22,8 @@ public class BornInversionService(
         double[] observedValues,
         double baseMu,
         InverseOptions options,
-        int maxIterations,
-        double functionalThreshold = 1e-8,
-        bool logProgress = true
+        int maxIterations = 20,
+        double functionalThreshold = 1e-8
     )
     {
         int n = mesh.Elements.Count;
@@ -36,8 +35,25 @@ public class BornInversionService(
 
         for (int iteration = 0; iteration < maxIterations; iteration++)
         {
-            if (logProgress)
-                Console.WriteLine($"\n[Born Iteration {iteration + 1}]");
+            Console.WriteLine($"\n[Born Iteration {iteration + 1}]");
+
+            // Построение фоновой модели и базового отклика
+            var mesh0 = mesh.CloneWithUniformMu(baseMu);
+            var baseField = await directTaskService.CalculateDirectTaskAsync(mesh0, sensors, sources);
+            var baseValues = baseField.Select(s => s.Magnitude).ToArray();
+            
+            // Построение якобиана на фоне (однократно)
+            var J = await jacobianCacheService.BuildOnceAsync(mesh0, sensors, sources, baseField);
+            var matJ = Matrix<double>.Build.DenseOfArray(J);
+            var JT = matJ.Transpose();
+            var JTJ = JT * matJ;
+            var residualVectorTemplate = Vector<double>.Build.DenseOfEnumerable(
+                observedValues.Zip(baseValues, (obs, model) => obs - model)
+            );
+            
+            // Регуляризация (Тихонов 1)
+            for (int i = 0; i < n; i++)
+                JTJ[i, i] += options.Lambda;
 
             // Построение текущей модели
             for (int i = 0; i < n; i++)
@@ -55,53 +71,35 @@ public class BornInversionService(
                 functional += residual * residual;
             }
 
-            if (logProgress)
-                Console.WriteLine($"Functional: {functional:E8}");
+
+            Console.WriteLine($"Functional: {functional:E8}");
 
             if (iteration == 0)
                 initialFunctional = functional;
             else
             {
                 var deltaF = previousFunctional - functional;
-                if (logProgress)
-                    Console.WriteLine($"Functional Δ: {deltaF:E8}");
+
+                Console.WriteLine($"Functional Δ: {deltaF:E8}");
 
                 if (Math.Abs(deltaF) < functionalThreshold)
                 {
-                    if (logProgress)
-                        Console.WriteLine("Stopping: functional change below threshold.");
+                    Console.WriteLine("Stopping: functional change below threshold.");
                     break;
                 }
             }
 
             previousFunctional = functional;
 
-            // Построение фоновой модели и базового отклика
-            var mesh0 = mesh.CloneWithUniformMu(baseMu);
-            var baseField = await directTaskService.CalculateDirectTaskAsync(mesh0, sensors, sources);
-            var baseValues = baseField.Select(s => s.Magnitude).ToArray();
-
-            // Построение якобиана на фоне
-            var J = await jacobianCacheService.BuildOnceAsync(mesh0, sensors, sources, baseField);
-            var residualVector = Vector<double>.Build.DenseOfEnumerable(
-                observedValues.Zip(baseValues, (obs, model) => obs - model)
-            );
-
-            var matJ = Matrix<double>.Build.DenseOfArray(J);
-            var JT = matJ.Transpose();
-            var JTJ = JT * matJ;
-            var JTr = JT * residualVector;
-
-            // Регуляризация (Тихонов 1)
-            for (int i = 0; i < n; i++)
-                JTJ[i, i] += options.Lambda;
+            // Используем фиксированный residual = observed - base
+            var JTr = JT * residualVectorTemplate;
 
             // Решение СЛАУ
             var deltaMu = JTJ.Solve(JTr);
 
             // Обновление модели
             for (int i = 0; i < n; i++)
-                mu[i] = mu[i] + deltaMu[i];
+                mu[i] += deltaMu[i];
         }
 
         return mu;

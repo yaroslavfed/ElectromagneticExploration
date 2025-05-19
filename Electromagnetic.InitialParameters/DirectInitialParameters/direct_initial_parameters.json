@@ -8,9 +8,9 @@
     "zStepToBounds": 10
   },
   "splittingParameters": {
-    "xSplittingCoefficient": 3,
-    "ySplittingCoefficient": 3,
-    "zSplittingCoefficient": 3,
+    "xSplittingCoefficient": 5,
+    "ySplittingCoefficient": 5,
+    "zSplittingCoefficient": 5,
     "xMultiplyCoefficient": 1,
     "yMultiplyCoefficient": 1,
     "zMultiplyCoefficient": 1
@@ -39,17 +39,17 @@
   ],
   "currentSource": {
     "start": {
-      "x": -10,
-      "y": -10,
+      "x": -5,
+      "y": 0,
       "z": 0
     },
     "end": {
-      "x": 10,
-      "y": 10,
+      "x": 5,
+      "y": 0,
       "z": 0
     },
-    "amperage": 2,
-    "segments": 3
+    "amperage": 1,
+    "segments": 5
   },
   "sensors": [
   ]

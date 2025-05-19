@@ -13,7 +13,6 @@ public interface IBornInversionService
         double baseMu,
         InverseOptions options,
         int maxIterations,
-        double functionalThreshold = 1e-8,
-        bool logProgress = true
+        double functionalThreshold = 1e-8
     );
 }

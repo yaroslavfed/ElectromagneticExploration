@@ -1,13 +1,14 @@
-import json
 import argparse
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-from scipy.spatial import ConvexHull
+import json
 from dataclasses import dataclass
 from typing import List, Optional
+
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.cm import ScalarMappable
 from matplotlib.patches import Polygon
+from scipy.spatial import ConvexHull
 
 
 @dataclass(frozen=True)
@@ -396,7 +397,7 @@ if __name__ == "__main__":
             sensors=sensors,
             x_slice=0,
             y_slice=0,
-            z_slice=0
+            z_slice=-15
         )
     except Exception as e:
         print(f"\nОшибка: {str(e)}")
