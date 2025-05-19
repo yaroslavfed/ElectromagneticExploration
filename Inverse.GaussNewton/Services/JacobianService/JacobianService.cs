@@ -20,16 +20,13 @@ public class JacobianService : IJacobianService
         Mesh mesh,
         IReadOnlyList<Sensor> sensors,
         IReadOnlyList<CurrentSegment> sources,
+        double[] currentValues, // Значения |B| на текущей итерации
         IReadOnlyList<FieldSample> primaryField
     )
     {
         int m = sensors.Count;
         int n = mesh.Elements.Count;
         var jacobian = new double[m, n];
-
-        // 1. Базовое решение прямой задачи
-        var baseField = await _directTaskService.CalculateDirectTaskAsync(mesh, sensors, sources, primaryField);
-        var baseValues = baseField.Select(s => s.Magnitude).ToArray();
 
         // 2. Параллельная сборка якобиана
         var tasks = new List<Task>();
@@ -38,7 +35,7 @@ public class JacobianService : IJacobianService
         for (int j = 0; j < n; j++)
         {
             await semaphore.WaitAsync();
-            int localJ = j; // важно: локальная копия индекса
+            int localJ = j; // локальная копия индекса
 
             var task = Task.Run(async () =>
                 {
@@ -54,15 +51,14 @@ public class JacobianService : IJacobianService
                         var perturbedValues = perturbedField.Select(s => s.Magnitude).ToArray();
 
                         double originalMu = mesh.Elements[localJ].Mu;
-                        double delta = 1e-4 * Math.Max(1.0, Math.Abs(originalMu));
+                        double delta = 0.1 * Math.Max(1e-8, Math.Abs(originalMu));  // Приращение mu в каждой ячейке
 
                         for (int i = 0; i < m; i++)
                         {
-                            jacobian[i, localJ] = (perturbedValues[i] - baseValues[i]) / delta;
+                            jacobian[i, localJ] = (perturbedValues[i] - currentValues[i]) / delta;
                         }
                     } finally
                     {
-                        // Передаём семафор явно через параметр Task.Run, чтобы не было захвата
                         semaphore.Release();
                     }
                 }
@@ -72,7 +68,7 @@ public class JacobianService : IJacobianService
         }
 
         await Task.WhenAll(tasks);
-        semaphore.Dispose(); // вручную после всех завершений
+        semaphore.Dispose();
         return jacobian;
     }
 

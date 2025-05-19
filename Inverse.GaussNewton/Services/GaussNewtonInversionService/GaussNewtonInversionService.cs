@@ -5,6 +5,7 @@ using Electromagnetic.Common.Models;
 using Inverse.GaussNewton.Services.InverseService;
 using Inverse.GaussNewton.Services.JacobianService;
 using Inverse.SharedCore.DirectTaskService;
+
 // ReSharper disable InconsistentNaming
 
 namespace Inverse.GaussNewton.Services.GaussNewtonInversionService;
@@ -92,11 +93,11 @@ public class GaussNewtonInversionService(
             if (iteration != 0)
             {
                 var difference = previousFunctional - currentFunctional;
-                if (difference<0) 
+                if (difference < 0)
                     Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"Difference between previous functional and current functional: {difference:E8}");
                 Console.ResetColor();
-                
+
                 if (Math.Abs(difference) < inversionOptions.RelativeTolerance)
                 {
                     Console.WriteLine("Small relative change in functional");
@@ -107,7 +108,13 @@ public class GaussNewtonInversionService(
 
             // Построение A
             Console.WriteLine("Calculating jacobian was started");
-            var matrixJ = await jacobianService.BuildJacobianAsync(currentMesh, sensors, sources, primaryField);
+            var matrixJ = await jacobianService.BuildJacobianAsync(
+                currentMesh,
+                sensors,
+                sources,
+                modelValues,
+                primaryField
+            );
             Console.WriteLine("Calculating jacobian was ended");
 
             // Текущие параметры модели

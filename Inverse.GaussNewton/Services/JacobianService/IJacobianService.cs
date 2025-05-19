@@ -8,6 +8,7 @@ public interface IJacobianService
         Mesh mesh,
         IReadOnlyList<Sensor> sensors,
         IReadOnlyList<CurrentSegment> sources,
+        double[] currentValues, // Значения |B| на текущей итерации
         IReadOnlyList<FieldSample> primaryField
     );
 }
