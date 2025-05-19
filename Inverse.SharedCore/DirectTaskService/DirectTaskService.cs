@@ -23,4 +23,18 @@ public class DirectTaskService(
     {
         return await directTaskService.CalculateDirectTaskAsync(testSessionParameters, primaryField);
     }
+
+    public async Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(
+        Mesh mesh,
+        IReadOnlyList<Sensor> sensors,
+        IReadOnlyList<CurrentSegment> sources
+    )
+    {
+        return await directTaskService.CalculateDirectTaskAsync(mesh, sensors, sources);
+    }
+
+    public async Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(TestSession testSessionParameters)
+    {
+        return await directTaskService.CalculateDirectTaskAsync(testSessionParameters);
+    }
 }

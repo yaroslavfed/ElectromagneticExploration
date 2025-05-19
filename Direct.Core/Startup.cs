@@ -16,12 +16,10 @@ internal class Startup(
 {
     public async Task Run()
     {
-        IReadOnlyList<FieldSample> values = [];
-
         Console.WriteLine("1 - both fields\t2 - only second field");
         var command = int.TryParse(Console.ReadLine(), out var number);
 
-        values = command switch
+        var values = command switch
         {
             true when number == 1 => await CalculateBothFields(),
             true when number == 2 => await CalculateOnlySecondField(),
@@ -69,7 +67,7 @@ internal class Startup(
 
         var emptyTestSession = emptyParameters with { StrataList = emptyStratums };
 
-        var emptyValues = await directTaskService.CalculateDirectTaskAsync(emptyTestSession);
+        var emptyValues = await directTaskService.CalculateDirectTaskAsync(emptyTestSession, false);
         var values = await directTaskService.CalculateDirectTaskAsync(initialParameters, emptyValues);
 
         return values;

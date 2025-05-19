@@ -17,10 +17,11 @@ public interface IDirectTaskService
         IReadOnlyList<FieldSample> primaryField
     );
 
-    Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(TestSession testSessionParameters);
+    Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(TestSession testSessionParameters, bool showPlot = true);
 
     Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(
         TestSession testSessionParameters,
-        IReadOnlyList<FieldSample> primaryField
+        IReadOnlyList<FieldSample> primaryField,
+        bool showPlot = true
     );
 }

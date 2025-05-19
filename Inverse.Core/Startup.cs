@@ -7,7 +7,9 @@ using Electromagnetic.Common.Data.Domain;
 using Electromagnetic.Common.Enums;
 using Electromagnetic.Common.Models;
 using Electromagnetic.Common.Services;
+using Inverse.BornApproximation.Services.BornInversionService;
 using Inverse.GaussNewton.Services.GaussNewtonInversionService;
+using Inverse.SharedDTO;
 
 namespace Inverse.Core;
 
@@ -15,13 +17,16 @@ internal class Startup(
     IDirectTaskService directTaskService,
     ITestSessionService testSessionService,
     ICurrentSourceProvider currentSourceProvider,
-    IGaussNewtonInversionService adaptiveInversionService
+    IGaussNewtonInversionService gaussNewtonInversionService,
+    IBornInversionService bornInversionService
 )
 {
     private IReadOnlyList<FieldSample> _primaryField = [];
 
     public async Task Run()
     {
+        var inversionType = GetInversionType();
+
         // Параметры сетки инверсии
         var initialParameters = await InitializeInverseTestSession();
 
@@ -58,16 +63,96 @@ internal class Startup(
         Console.WriteLine("Getting true values");
         var trueModelValues = await CalculateTrueModelValuesModel(trueTestSession);
 
-        await adaptiveInversionService.AdaptiveInvertAsync(
+        switch (inversionType)
+        {
+            case EInversionType.GaussNewtonMethod:
+                await RunGaussNewtonMethodInversionAsync(
+                    trueModelValues,
+                    trueSources,
+                    trueSensors,
+                    _primaryField,
+                    baseMu,
+                    initialMesh,
+                    inversionOptions,
+                    refinementOptions
+                );
+                break;
+            case EInversionType.BornApproximation:
+                await RunBornApproximationInversionAsync(
+                    trueModelValues,
+                    trueSources,
+                    trueSensors,
+                    _primaryField,
+                    baseMu,
+                    initialMesh,
+                    inversionOptions,
+                    refinementOptions
+                );
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private EInversionType GetInversionType()
+    {
+        Console.WriteLine("1 - GaussNewton\t2 - BornApproximation");
+        var command = int.TryParse(Console.ReadLine(), out var number);
+
+        return command switch
+        {
+            true when number == 1 => EInversionType.GaussNewtonMethod,
+            true when number == 2 => EInversionType.BornApproximation,
+            _                     => throw new ArgumentException()
+        };
+    }
+
+    private async Task RunGaussNewtonMethodInversionAsync(
+        IReadOnlyList<FieldSample> trueModelValues,
+        IReadOnlyList<CurrentSegment> trueSources,
+        IReadOnlyList<Sensor> trueSensors,
+        IReadOnlyList<FieldSample> primaryField,
+        double baseMu,
+        Mesh initialMesh,
+        InverseOptions inversionOptions,
+        MeshRefinementOptions refinementOptions
+    )
+    {
+        Console.WriteLine("GaussNewton inversion started");
+        await gaussNewtonInversionService.AdaptiveInvertAsync(
             trueModelValues,
             trueSources,
             trueSensors,
-            _primaryField,
+            primaryField,
             baseMu,
             initialMesh,
             inversionOptions,
             refinementOptions
         );
+        Console.WriteLine("GaussNewton inversion finished");
+    }
+
+    private async Task RunBornApproximationInversionAsync(
+        IReadOnlyList<FieldSample> trueModelValues,
+        IReadOnlyList<CurrentSegment> trueSources,
+        IReadOnlyList<Sensor> trueSensors,
+        IReadOnlyList<FieldSample> primaryField,
+        double baseMu,
+        Mesh initialMesh,
+        InverseOptions inversionOptions,
+        MeshRefinementOptions refinementOptions
+    )
+    {
+        Console.WriteLine("BornApproximation inversion started");
+        // await bornInversionService.AdaptiveInvertAsync(
+        //     initialMesh,
+        //     trueSensors,
+        //     trueSources,
+        //     trueModelValues,
+        //     baseMu,
+        //     inversionOptions
+        // );
+        Console.WriteLine("BornApproximation inversion finished");
     }
 
     private async Task CalculateBaseEnvironment(
@@ -112,11 +197,7 @@ internal class Startup(
                            .ToList()
             };
 
-            _primaryField = await directTaskService.CalculateDirectTaskAsync(
-                homogeneousMesh,
-                sensors,
-                sources
-            );
+            _primaryField = await directTaskService.CalculateDirectTaskAsync(homogeneousMesh, sensors, sources);
         }
     }
 

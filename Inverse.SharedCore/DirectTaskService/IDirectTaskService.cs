@@ -15,4 +15,12 @@ public interface IDirectTaskService
         TestSession testSessionParameters,
         IReadOnlyList<FieldSample> primaryField
     );
+
+    Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(
+        Mesh mesh,
+        IReadOnlyList<Sensor> sensors,
+        IReadOnlyList<CurrentSegment> sources
+    );
+
+    Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(TestSession testSessionParameters);
 }

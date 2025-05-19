@@ -23,7 +23,6 @@ public interface IInversionService
         double[,] jacobian,
         double[] parameters,
         InverseOptions options,
-        int iterationNumber,
-        out double effectiveLambda
+        int iterationNumber
     );
 }

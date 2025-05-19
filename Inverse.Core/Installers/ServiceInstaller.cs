@@ -1,4 +1,5 @@
 using Autofac;
+using Direct.Core.Installers;
 using Inverse.SharedCore.DirectTaskService;
 using Inverse.SharedCore.MeshRefinerService;
 
@@ -11,7 +12,9 @@ public static class ServiceInstaller
         builder.RegisterType<DirectTaskService>().As<IDirectTaskService>();
         builder.RegisterType<MeshRefinerService>().As<IMeshRefinerService>();
 
-        Direct.Core.Installers.ServicesInstaller.RegisterServices(builder);
+        ServicesInstaller.RegisterServices(builder);
+
         GaussNewton.Installers.ServiceInstaller.RegisterGaussNewtonServices(builder);
+        BornApproximation.Installers.ServiceInstaller.RegisterBornServices(builder);
     }
 }

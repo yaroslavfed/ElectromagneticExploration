@@ -103,14 +103,19 @@ public class DirectTaskService(
         }
     }
 
-    public async Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(TestSession testSessionParameters)
+    public async Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(
+        TestSession testSessionParameters,
+        bool showPlot = true
+    )
     {
         // Построение сетки сенсоров
         var sensors = testSessionParameters.Sensors;
 
         // Построение сетки
         var testSession = await testSessionService.CreateTestSessionAsync(testSessionParameters);
-        await plotService.ShowPlotAsync(testSession.Mesh, sensors);
+
+        if (showPlot)
+            await plotService.ShowPlotAsync(testSession.Mesh, sensors);
 
         // Источник тока
         var sources = await currentSourceProvider.GetSourcesAsync(testSessionParameters.CurrentSource);
@@ -120,7 +125,8 @@ public class DirectTaskService(
 
     public async Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(
         TestSession testSessionParameters,
-        IReadOnlyList<FieldSample> primaryField
+        IReadOnlyList<FieldSample> primaryField,
+        bool showPlot = true
     )
     {
         // Построение сетки сенсоров
@@ -128,7 +134,9 @@ public class DirectTaskService(
 
         // Построение сетки
         var testSession = await testSessionService.CreateTestSessionAsync(testSessionParameters);
-        await plotService.ShowPlotAsync(testSession.Mesh, sensors);
+
+        if (showPlot)
+            await plotService.ShowPlotAsync(testSession.Mesh, sensors);
 
         // Источник тока
         var sources = await currentSourceProvider.GetSourcesAsync(testSessionParameters.CurrentSource);

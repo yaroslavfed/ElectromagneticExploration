@@ -64,8 +64,6 @@ public class GaussNewtonInversionService(
                 currentFunctional += residual * residual * weight * weight;
             }
 
-            Console.WriteLine($"Current functional [iteration {iteration}]: {currentFunctional:E8}");
-
             // Сохранение начального функционала
             if (iteration == 0)
             {
@@ -82,7 +80,14 @@ public class GaussNewtonInversionService(
 
             // Проверка на достижение искомого функционала
             var functionalDiv = currentFunctional / _initialFunctional;
-            Console.WriteLine($"Difference of {functionalDiv} to {inversionOptions.FunctionalThreshold}");
+
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Console.WriteLine(
+                $"Current functional: {currentFunctional:E8}\t|\tInitial functional: {_initialFunctional:E8} \n "
+                + $"(Current functional) / (Initial functional): {functionalDiv}\t|\tFunctional threshold: {inversionOptions.FunctionalThreshold}"
+            );
+            Console.ResetColor();
+
             if (functionalDiv <= inversionOptions.FunctionalThreshold)
             {
                 Console.WriteLine("The desired value of the functional has been achieved");
@@ -94,7 +99,7 @@ public class GaussNewtonInversionService(
             {
                 var difference = previousFunctional - currentFunctional;
                 if (difference < 0)
-                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.ForegroundColor = ConsoleColor.DarkRed;
                 Console.WriteLine($"Difference between previous functional and current functional: {difference:E8}");
                 Console.ResetColor();
 
@@ -115,7 +120,7 @@ public class GaussNewtonInversionService(
                 modelValues,
                 primaryField
             );
-            Console.WriteLine("Calculating jacobian was ended");
+            Console.WriteLine("Calculating jacobian was finished");
 
             // Текущие параметры модели
             var modelParameters = currentMesh.Elements.Select(c => c.Mu).ToArray();
@@ -128,16 +133,8 @@ public class GaussNewtonInversionService(
                 matrixJ,
                 modelParameters, // текущие значения мю
                 inversionOptions,
-                iteration,
-                out var effectiveLambda
+                iteration
             );
-
-            // Лог состояния итерации
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine(
-                $"[Iteration {iteration + 1}] Functional: {currentFunctional:E8} | Lambda: {effectiveLambda:E5} | UseTikhonovFirstOrder: {inversionOptions.UseTikhonovFirstOrder} | UseTikhonovSecondOrder: {inversionOptions.UseTikhonovSecondOrder}"
-            );
-            Console.ResetColor();
 
             // Обновляем плотности ячеек
             for (int j = 0; j < currentMesh.Elements.Count; j++)
@@ -146,21 +143,25 @@ public class GaussNewtonInversionService(
         }
 
         _timer.Stop();
+
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine($"Elapsed time: {_timer.Elapsed}");
         Console.WriteLine($"Initial functional: {_initialFunctional:E8}\t|\tLast functional: {currentFunctional:E8}");
         Console.ResetColor();
 
-        ShowPlotAsync(currentMesh);
+        await ShowPlotAsync(currentMesh);
+
+        var values = await directTaskService.CalculateDirectTaskAsync(currentMesh, sensors, sources, primaryField);
+        await ShowValuesAsync(values);
     }
 
-    private void ShowPlotAsync(Mesh mesh)
+    private async Task ShowPlotAsync(Mesh mesh)
     {
         const string jsonFile = "inverse.json";
         const string pythonPath = "python";
         const string outputImage = "inverse.png";
 
-        File.WriteAllText(jsonFile, JsonSerializer.Serialize(mesh));
+        await File.WriteAllTextAsync(jsonFile, JsonSerializer.Serialize(mesh));
         var currentDirectory = Directory.GetCurrentDirectory();
         var scriptPath = Path.Combine(currentDirectory, "Scripts\\inverse_chart.py");
 
@@ -175,6 +176,26 @@ public class GaussNewtonInversionService(
         };
 
         var process = Process.Start(psi);
-        process?.WaitForExit();
+        await process?.WaitForExitAsync()!;
+    }
+
+    private async Task ShowValuesAsync(IReadOnlyList<FieldSample> values)
+    {
+        var json = JsonSerializer.Serialize(values, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync("field_data.json", json);
+
+        var scriptPath = Path.Combine(Directory.GetCurrentDirectory(), "Scripts\\contour_plot.py");
+        var psi = new ProcessStartInfo
+        {
+            FileName = "python",
+            Arguments = scriptPath,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = false,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        var process = Process.Start(psi);
+        await process?.WaitForExitAsync()!;
     }
 }

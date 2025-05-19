@@ -16,8 +16,7 @@ public class InversionService : IInversionService
         double[,] jacobianRaw,
         double[] parameters,
         InverseOptions options,
-        int iterationNumber,
-        out double effectiveLambda
+        int iterationNumber
     )
     {
         int n = parameters.Length;
@@ -26,7 +25,7 @@ public class InversionService : IInversionService
         var residual = Vector<double>.Build.DenseOfEnumerable(
             observedValues.Zip(modelValues, (obs, calc) => obs - calc)
         );
-        
+
         var J = Matrix<double>.Build.DenseOfArray(jacobianRaw);
 
         // Вычисляем A = J^T * J и b = J^T * r
@@ -35,8 +34,8 @@ public class InversionService : IInversionService
         var JTr = JT * residual;
 
         // Вычисляем лямбду с учётом динамического затухания
-        double baseLambda = options.Lambda;
-        effectiveLambda = baseLambda;
+        var baseLambda = options.Lambda;
+        var effectiveLambda = baseLambda;
 
         if (options.AutoAdjustRegularization)
         {
@@ -47,15 +46,21 @@ public class InversionService : IInversionService
         // Добавляем регуляризацию на величину mu (Тихонов 1)
         if (options.UseTikhonovFirstOrder)
         {
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"Using Tikhonov first order: alfa = {effectiveLambda}");
             for (int i = 0; i < n; i++)
                 JTJ[i, i] += effectiveLambda;
+            Console.ResetColor();
         }
 
         // Добавляем сглаживающую регуляризацию по кривизне mu (Тихонов 2)
         if (options.UseTikhonovSecondOrder)
         {
-            double gamma = effectiveLambda * options.SecondOrderRegularizationLambdaMultiplier;
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            var gamma = effectiveLambda * options.SecondOrderRegularizationLambdaMultiplier;
+            Console.WriteLine($"Using Tikhonov second order: gamma = {gamma}");
             AddTikhonovSecondOrderRegularization(JTJ, mesh, gamma);
+            Console.ResetColor();
         }
 
         // Решаем СЛАУ

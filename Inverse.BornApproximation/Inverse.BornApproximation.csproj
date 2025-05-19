@@ -11,9 +11,4 @@
       <ProjectReference Include="..\Inverse.SharedCore\Inverse.SharedCore.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Installers\" />
-      <Folder Include="Services\" />
-    </ItemGroup>
-
 </Project>
