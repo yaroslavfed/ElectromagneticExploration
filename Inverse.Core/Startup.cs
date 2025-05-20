@@ -144,14 +144,16 @@ internal class Startup(
     )
     {
         Console.WriteLine("BornApproximation inversion started");
-        // await bornInversionService.AdaptiveInvertAsync(
-        //     initialMesh,
-        //     trueSensors,
-        //     trueSources,
-        //     trueModelValues,
-        //     baseMu,
-        //     inversionOptions
-        // );
+        await bornInversionService.AdaptiveInvertAsync(
+            trueModelValues,
+            trueSources,
+            trueSensors,
+            primaryField,
+            baseMu,
+            initialMesh,
+            inversionOptions,
+            refinementOptions
+        );
         Console.WriteLine("BornApproximation inversion finished");
     }
 

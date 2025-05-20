@@ -8,6 +8,7 @@ public interface IBornJacobianCacheService
         Mesh mesh,
         IReadOnlyList<Sensor> sensors,
         IReadOnlyList<CurrentSegment> sources,
+        double[] currentValues,
         IReadOnlyList<FieldSample> primaryField
     );
 }

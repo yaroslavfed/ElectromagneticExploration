@@ -5,14 +5,14 @@ namespace Inverse.BornApproximation.Services.BornInversionService;
 
 public interface IBornInversionService
 {
-    Task<double[]> InvertIterativelyAsync(
-        Mesh mesh,
-        IReadOnlyList<Sensor> sensors,
+    Task<double[]> AdaptiveInvertAsync(
+        IReadOnlyList<FieldSample> trueModelValues,
         IReadOnlyList<CurrentSegment> sources,
-        double[] observedValues,
+        IReadOnlyList<Sensor> sensors,
+        IReadOnlyList<FieldSample> primaryField,
         double baseMu,
-        InverseOptions options,
-        int maxIterations,
-        double functionalThreshold = 1e-8
+        Mesh initialMesh,
+        InverseOptions inversionOptions,
+        MeshRefinementOptions refinementOptions
     );
 }

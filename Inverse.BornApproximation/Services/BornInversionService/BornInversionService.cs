@@ -10,96 +10,90 @@ namespace Inverse.BornApproximation.Services.BornInversionService;
 /// <summary>
 /// Реализация метода Борновских приближений для решения обратной задачи.
 /// </summary>
+/// <summary>
+/// Итерационный метод Борна с фиксированным rot(A0) и обновлением правой части.
+/// </summary>
 public class BornInversionService(
     IDirectTaskService directTaskService,
     IBornJacobianCacheService jacobianCacheService
 ) : IBornInversionService
 {
-    public async Task<double[]> InvertIterativelyAsync(
-        Mesh mesh,
-        IReadOnlyList<Sensor> sensors,
+    public async Task<double[]> AdaptiveInvertAsync(
+        IReadOnlyList<FieldSample> trueModelValues,
         IReadOnlyList<CurrentSegment> sources,
-        double[] observedValues,
+        IReadOnlyList<Sensor> sensors,
+        IReadOnlyList<FieldSample> primaryField,
         double baseMu,
-        InverseOptions options,
-        int maxIterations = 20,
-        double functionalThreshold = 1e-8
+        Mesh initialMesh,
+        InverseOptions inversionOptions,
+        MeshRefinementOptions refinementOptions
     )
     {
-        int n = mesh.Elements.Count;
+        int n = initialMesh.Elements.Count;
         int m = sensors.Count;
+        double[] mu = Enumerable.Repeat(baseMu, n).ToArray();
 
-        var mu = Enumerable.Repeat(baseMu, n).ToArray();
-        double initialFunctional = double.MaxValue;
+        var observedValues = trueModelValues.Select(s => s.Magnitude).ToArray();
+
+        // 1. Строим фоновую модель и решаем A0 (один раз)
+        var mesh0 = initialMesh.CloneWithUniformMu(baseMu);
+        var baseField = await directTaskService.CalculateDirectTaskAsync(mesh0, sensors, sources, primaryField);
+        var eps0 = baseField.Select(f => f.Magnitude).ToArray();
+
+        // 2. Строим якобиан на фоне один раз
+        var J = await jacobianCacheService.BuildOnceAsync(mesh0, sensors, sources, eps0, primaryField);
+        var matJ = Matrix<double>.Build.DenseOfArray(J);
+        var JT = matJ.Transpose();
+        var JTJ = JT * matJ;
+
+        // 3. Регуляризация (Тихонов I порядка)
+        for (int i = 0; i < n; i++)
+            JTJ[i, i] += inversionOptions.Lambda;
+
+        // 4. Итерации уточнения модели
+        double[] eps_k = new double[m];
         double previousFunctional = double.MaxValue;
 
-        for (int iteration = 0; iteration < maxIterations; iteration++)
+        for (int iter = 0; iter < inversionOptions.MaxIterations; iter++)
         {
-            Console.WriteLine($"\n[Born Iteration {iteration + 1}]");
+            for (int i = 0; i < n; i++)
+                initialMesh.Elements[i].Mu = mu[i];
 
-            // Построение фоновой модели и базового отклика
-            var mesh0 = mesh.CloneWithUniformMu(baseMu);
-            var baseField = await directTaskService.CalculateDirectTaskAsync(mesh0, sensors, sources);
-            var baseValues = baseField.Select(s => s.Magnitude).ToArray();
-            
-            // Построение якобиана на фоне (однократно)
-            var J = await jacobianCacheService.BuildOnceAsync(mesh0, sensors, sources, baseField);
-            var matJ = Matrix<double>.Build.DenseOfArray(J);
-            var JT = matJ.Transpose();
-            var JTJ = JT * matJ;
-            var residualVectorTemplate = Vector<double>.Build.DenseOfEnumerable(
-                observedValues.Zip(baseValues, (obs, model) => obs - model)
+            var epsField = await directTaskService.CalculateDirectTaskAsync(
+                initialMesh,
+                sensors,
+                sources,
+                primaryField
             );
-            
-            // Регуляризация (Тихонов 1)
-            for (int i = 0; i < n; i++)
-                JTJ[i, i] += options.Lambda;
+            eps_k = epsField.Select(f => f.Magnitude).ToArray();
 
-            // Построение текущей модели
-            for (int i = 0; i < n; i++)
-                mesh.Elements[i].Mu = mu[i];
-
-            // Расчёт отклика модели
-            var currentField = await directTaskService.CalculateDirectTaskAsync(mesh, sensors, sources);
-            var currentValues = currentField.Select(s => s.Magnitude).ToArray();
-
-            // Расчёт невязки и функционала
             double functional = 0.0;
             for (int i = 0; i < m; i++)
             {
-                var residual = observedValues[i] - currentValues[i];
-                functional += residual * residual;
+                var r = observedValues[i] - eps_k[i];
+                functional += r * r;
             }
 
+            Console.WriteLine($"[Iter {iter}] Functional: {functional:E8}");
 
-            Console.WriteLine($"Functional: {functional:E8}");
-
-            if (iteration == 0)
-                initialFunctional = functional;
-            else
+            if (Math.Abs(previousFunctional - functional) < inversionOptions.FunctionalThreshold)
             {
-                var deltaF = previousFunctional - functional;
-
-                Console.WriteLine($"Functional Δ: {deltaF:E8}");
-
-                if (Math.Abs(deltaF) < functionalThreshold)
-                {
-                    Console.WriteLine("Stopping: functional change below threshold.");
-                    break;
-                }
+                Console.WriteLine("Stopping: functional change below tolerance.");
+                break;
             }
 
             previousFunctional = functional;
 
-            // Используем фиксированный residual = observed - base
-            var JTr = JT * residualVectorTemplate;
+            // Правая часть: eps_obs - eps0 (фиксировано)
+            var residual = Vector<double>.Build.DenseOfEnumerable(observedValues.Zip(eps0, (obs, b0) => obs - b0));
+            var JTr = JT * residual;
 
-            // Решение СЛАУ
-            var deltaMu = JTJ.Solve(JTr);
+            // Решение: deltaMu
+            var JTJLU = JTJ.LU();
+            var delta = JTJLU.Solve(JTr);
 
-            // Обновление модели
             for (int i = 0; i < n; i++)
-                mu[i] += deltaMu[i];
+                mu[i] += delta[i];
         }
 
         return mu;

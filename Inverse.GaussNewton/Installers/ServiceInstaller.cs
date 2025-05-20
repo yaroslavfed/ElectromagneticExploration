@@ -9,7 +9,7 @@ public static class ServiceInstaller
 {
     public static void RegisterGaussNewtonServices(this ContainerBuilder builder)
     {
-        builder.RegisterType<JacobianService>().As<IJacobianService>();
+        builder.RegisterType<GaussNewtonJacobianService>().As<IGaussNewtonJacobianService>();
         builder.RegisterType<InversionService>().As<IInversionService>();
         builder.RegisterType<GaussNewtonInversionService>().As<IGaussNewtonInversionService>();
     }

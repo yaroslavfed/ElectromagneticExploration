@@ -16,6 +16,7 @@ public class BornJacobianCacheService(
         Mesh mesh,
         IReadOnlyList<Sensor> sensors,
         IReadOnlyList<CurrentSegment> sources,
+        double[] currentValues,
         IReadOnlyList<FieldSample> primaryField
     )
     {
@@ -23,34 +24,50 @@ public class BornJacobianCacheService(
             { })
             return _cachedJacobian;
 
-        var m = sensors.Count;
-        var n = mesh.Elements.Count;
+        int m = sensors.Count;
+        int n = mesh.Elements.Count;
         var jacobian = new double[m, n];
 
-        // 1. Базовое решение
-        var baseValues = primaryField.Select(s => s.Magnitude).ToArray();
+        var tasks = new List<Task>();
+        var semaphore = new SemaphoreSlim(Environment.ProcessorCount);
 
-        // 2. Перебираем ячейки и рассчитываем якобиан по численной производной
-        for (var j = 0; j < n; j++)
+        for (int j = 0; j < n; j++)
         {
-            var perturbedMesh = CloneMeshWithPerturbedMu(mesh, j);
-            var perturbedField = await directTaskService.CalculateDirectTaskAsync(
-                perturbedMesh,
-                sensors,
-                sources,
-                primaryField
+            await semaphore.WaitAsync();
+            int localJ = j;
+
+            var task = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var perturbedMesh = CloneMeshWithPerturbedMu(mesh, localJ);
+                        var perturbedField = await directTaskService.CalculateDirectTaskAsync(
+                            perturbedMesh,
+                            sensors,
+                            sources,
+                            primaryField
+                        );
+                        var perturbedValues = perturbedField.Select(s => s.Magnitude).ToArray();
+
+                        double originalMu = mesh.Elements[localJ].Mu;
+                        double delta = ComputeDeltaMu(originalMu);
+
+                        for (int i = 0; i < m; i++)
+                        {
+                            jacobian[i, localJ] = (perturbedValues[i] - currentValues[i]) / delta;
+                        }
+                    } finally
+                    {
+                        semaphore.Release();
+                    }
+                }
             );
 
-            var perturbedValues = perturbedField.Select(s => s.Magnitude).ToArray();
-
-            var originalMu = mesh.Elements[j].Mu;
-            var delta = 0.1 * Math.Max(1.0, Math.Abs(originalMu));
-
-            for (var i = 0; i < m; i++)
-            {
-                jacobian[i, j] = (perturbedValues[i] - baseValues[i]) / delta;
-            }
+            tasks.Add(task);
         }
+
+        await Task.WhenAll(tasks);
+        semaphore.Dispose();
 
         _cachedJacobian = jacobian;
         return jacobian;
@@ -88,9 +105,11 @@ public class BornJacobianCacheService(
         }
 
         double originalMu = clonedElements[indexToPerturb].Mu;
-        double delta = 0.1 * Math.Max(1.0, Math.Abs(originalMu));
+        double delta = ComputeDeltaMu(originalMu);
         clonedElements[indexToPerturb].Mu += delta;
 
         return new Mesh { Elements = clonedElements };
     }
+
+    private static double ComputeDeltaMu(double mu) => 0.1 * Math.Max(1e-8, Math.Abs(mu));
 }

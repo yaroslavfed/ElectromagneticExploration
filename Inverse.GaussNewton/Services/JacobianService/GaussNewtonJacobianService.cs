@@ -6,17 +6,12 @@ namespace Inverse.GaussNewton.Services.JacobianService;
 /// <summary>
 /// Сервис расчёта матрицы Якобиана для сетки ячеек и списка сенсоров.
 /// </summary>
-public class JacobianService : IJacobianService
+public class GaussNewtonJacobianService(
+    IDirectTaskService directTaskService
+) : IGaussNewtonJacobianService
 {
-    private readonly IDirectTaskService _directTaskService;
-    private readonly int                _maxParallelism = Environment.ProcessorCount;
 
-    public JacobianService(IDirectTaskService directTaskService)
-    {
-        _directTaskService = directTaskService;
-    }
-
-    public async Task<double[,]> BuildJacobianAsync(
+    public async Task<double[,]> BuildAsync(
         Mesh mesh,
         IReadOnlyList<Sensor> sensors,
         IReadOnlyList<CurrentSegment> sources,
@@ -28,21 +23,20 @@ public class JacobianService : IJacobianService
         int n = mesh.Elements.Count;
         var jacobian = new double[m, n];
 
-        // 2. Параллельная сборка якобиана
         var tasks = new List<Task>();
+        var semaphore = new SemaphoreSlim(Environment.ProcessorCount);
 
-        var semaphore = new SemaphoreSlim(_maxParallelism);
         for (int j = 0; j < n; j++)
         {
             await semaphore.WaitAsync();
-            int localJ = j; // локальная копия индекса
+            int localJ = j;
 
             var task = Task.Run(async () =>
                 {
                     try
                     {
                         var perturbedMesh = CloneMeshWithPerturbedMu(mesh, localJ);
-                        var perturbedField = await _directTaskService.CalculateDirectTaskAsync(
+                        var perturbedField = await directTaskService.CalculateDirectTaskAsync(
                             perturbedMesh,
                             sensors,
                             sources,
@@ -51,7 +45,7 @@ public class JacobianService : IJacobianService
                         var perturbedValues = perturbedField.Select(s => s.Magnitude).ToArray();
 
                         double originalMu = mesh.Elements[localJ].Mu;
-                        double delta = 0.1 * Math.Max(1e-8, Math.Abs(originalMu));  // Приращение mu в каждой ячейке
+                        double delta = ComputeDeltaMu(originalMu);
 
                         for (int i = 0; i < m; i++)
                         {
@@ -103,11 +97,12 @@ public class JacobianService : IJacobianService
             clonedElements.Add(new FiniteElement { Edges = clonedEdges, Mu = originalElement.Mu });
         }
 
-        // Возмущаем μ только в нужной ячейке
         double originalMu = clonedElements[indexToPerturb].Mu;
-        double delta = 1e-4 * Math.Max(1.0, Math.Abs(originalMu));
+        double delta = ComputeDeltaMu(originalMu);
         clonedElements[indexToPerturb].Mu += delta;
 
         return new Mesh { Elements = clonedElements };
     }
+
+    private static double ComputeDeltaMu(double mu) => 0.1 * Math.Max(1e-8, Math.Abs(mu));
 }

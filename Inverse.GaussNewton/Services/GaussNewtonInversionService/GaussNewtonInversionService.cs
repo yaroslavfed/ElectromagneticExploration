@@ -12,7 +12,7 @@ namespace Inverse.GaussNewton.Services.GaussNewtonInversionService;
 
 public class GaussNewtonInversionService(
     IInversionService inversionService,
-    IJacobianService jacobianService,
+    IGaussNewtonJacobianService gaussNewtonJacobianService,
     IDirectTaskService directTaskService
 ) : IGaussNewtonInversionService
 {
@@ -113,7 +113,7 @@ public class GaussNewtonInversionService(
 
             // Построение A
             Console.WriteLine("Calculating jacobian was started");
-            var matrixJ = await jacobianService.BuildJacobianAsync(
+            var matrixJ = await gaussNewtonJacobianService.BuildAsync(
                 currentMesh,
                 sensors,
                 sources,

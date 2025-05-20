@@ -2,13 +2,13 @@
 
 namespace Inverse.GaussNewton.Services.JacobianService;
 
-public interface IJacobianService
+public interface IGaussNewtonJacobianService
 {
-    Task<double[,]> BuildJacobianAsync(
+    Task<double[,]> BuildAsync(
         Mesh mesh,
         IReadOnlyList<Sensor> sensors,
         IReadOnlyList<CurrentSegment> sources,
-        double[] currentValues, // Значения |B| на текущей итерации
+        double[] currentValues,
         IReadOnlyList<FieldSample> primaryField
     );
 }
