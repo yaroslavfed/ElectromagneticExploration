@@ -1,4 +1,5 @@
-﻿using Electromagnetic.Common.Data.Domain;
+﻿using System.Diagnostics;
+using Electromagnetic.Common.Data.Domain;
 
 namespace Inverse.SharedCore.DirectTaskService;
 
@@ -13,7 +14,12 @@ public class DirectTaskService(
         IReadOnlyList<FieldSample> primaryField
     )
     {
-        return await directTaskService.CalculateDirectTaskAsync(mesh, sensors, sources, primaryField);
+        var timer = new Stopwatch();
+        timer.Start();
+        var result = await directTaskService.CalculateDirectTaskAsync(mesh, sensors, sources, primaryField);
+        timer.Stop();
+        Console.WriteLine($"Calculation direct task was finished in {timer.Elapsed.TotalMinutes}m");
+        return result;
     }
 
     public async Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(
@@ -21,7 +27,12 @@ public class DirectTaskService(
         IReadOnlyList<FieldSample> primaryField
     )
     {
-        return await directTaskService.CalculateDirectTaskAsync(testSessionParameters, primaryField);
+        var timer = new Stopwatch();
+        timer.Start();
+        var result = await directTaskService.CalculateDirectTaskAsync(testSessionParameters, primaryField);
+        timer.Stop();
+        Console.WriteLine($"Calculation direct task was finished in {timer.Elapsed.TotalMinutes}m");
+        return result;
     }
 
     public async Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(
@@ -30,11 +41,21 @@ public class DirectTaskService(
         IReadOnlyList<CurrentSegment> sources
     )
     {
-        return await directTaskService.CalculateDirectTaskAsync(mesh, sensors, sources);
+        var timer = new Stopwatch();
+        timer.Start();
+        var result = await directTaskService.CalculateDirectTaskAsync(mesh, sensors, sources);
+        timer.Stop();
+        Console.WriteLine($"Calculation direct task was finished in {timer.Elapsed.TotalMinutes}m");
+        return result;
     }
 
     public async Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(TestSession testSessionParameters)
     {
-        return await directTaskService.CalculateDirectTaskAsync(testSessionParameters);
+        var timer = new Stopwatch();
+        timer.Start();
+        var result = await directTaskService.CalculateDirectTaskAsync(testSessionParameters);
+        timer.Stop();
+        Console.WriteLine($"Calculation direct task was finished in {timer.Elapsed.TotalMinutes}m");
+        return result;
     }
 }

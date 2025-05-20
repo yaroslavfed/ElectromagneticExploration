@@ -54,9 +54,10 @@ internal class Startup(
         // Источники тока
         var trueSources = await currentSourceProvider.GetSourcesAsync(trueTestSession.CurrentSource);
 
-        // Истинное значение на сенсорах
+        // Истинное положение сенсоров
         var trueSensors = CreateTrueSensorsModel(trueTestSession);
 
+        Console.WriteLine("Calculate base environment");
         await CalculateBaseEnvironment(initialMesh, trueSensors, trueSources, baseMu);
 
         // Получение истинных значений на сенсорах

@@ -21,21 +21,6 @@
     "boundaryCondition": 0
   },
   "strataList": [
-    {
-      "positioning": {
-        "centerCoordinate": {
-          "x": 0,
-          "y": 0,
-          "z": -15
-        },
-        "boundsDistance": {
-          "x": 3,
-          "y": 3,
-          "z": 5
-        }
-      },
-      "mu": 1.2566e-3
-    }
   ],
   "currentSource": {
     "start": {

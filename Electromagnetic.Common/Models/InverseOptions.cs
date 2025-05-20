@@ -9,10 +9,18 @@ namespace Electromagnetic.Common.Models;
 public record InverseOptions
 {
     /// <summary>
-    /// Абсолютный порог невязки для остановки инверсии.
-    /// Если функционал меньше этого значения — инверсия завершается.
+    /// Лимит функционала, если отношение между текущим функционалом на итерации меньше во сколько раз, чем первоначальный функционал - инверсия завершается
     /// </summary>
     public double FunctionalThreshold { get; set; }
+    /// <summary>
+    /// Использование лимита по времени
+    /// </summary>
+    public bool UseTimeThreshold { get; set; }
+
+    /// <summary>
+    /// Порог выполнения задачи, если задача решается дольше этого значения - инверсия завершается
+    /// </summary>
+    public double TimeThreshold { get; set; }
 
     /// <summary>
     /// Начальный коэффициент регуляризации (амплитудная регуляризация).
@@ -99,7 +107,7 @@ public record InverseOptions
     /// </summary>
     [JsonIgnore]
     public int? SmoothingStartIteration { get; set; }
-    
+
     /// <summary>
     /// Допустимый рост функционала прежде чем считать это отклонением.
     /// </summary>

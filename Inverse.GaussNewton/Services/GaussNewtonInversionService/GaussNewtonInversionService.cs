@@ -31,21 +31,22 @@ public class GaussNewtonInversionService(
         MeshRefinementOptions refinementOptions
     )
     {
+        // Запуск расчёта времени
+        _timer.Start();
+
         // Истинные значения
-        var observedValues = trueModelValues.Select(s => s.Magnitude).ToArray();
-
+        var trueValues = trueModelValues.Select(s => s.Magnitude).ToArray();
         var currentMesh = initialMesh;
-        double currentFunctional = .0;
 
+        double currentFunctional = .0;
         double previousFunctional = double.MaxValue;
 
-        _timer.Start();
         for (var iteration = 0; iteration < inversionOptions.MaxIterations; iteration++)
         {
-            Console.WriteLine($"\n== Adaptive Inversion Iteration {iteration + 1} ==");
+            Console.WriteLine($"\n== Gauss-Newton inversion: iteration[{iteration + 1}] ==");
 
             // Расчёт прямой задачи
-            Console.WriteLine($"Calculating direct task on the iteration step [{iteration}]");
+            Console.WriteLine("Calculating direct task was started");
             var anomalySensors = await directTaskService.CalculateDirectTaskAsync(
                 currentMesh,
                 sensors,
@@ -53,12 +54,13 @@ public class GaussNewtonInversionService(
                 primaryField
             );
             var modelValues = anomalySensors.Select(s => s.Magnitude).ToArray();
+            Console.WriteLine("Calculating direct task was finished");
 
             // Расчёт невязки и вычисление функционала
             currentFunctional = .0;
             for (var i = 0; i < modelValues.Length; i++)
             {
-                var residual = observedValues[i] - modelValues[i];
+                var residual = trueValues[i] - modelValues[i];
                 var weight = 1; // TODO: заменить на применения весов
 
                 currentFunctional += residual * residual * weight * weight;
@@ -83,7 +85,7 @@ public class GaussNewtonInversionService(
 
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine(
-                $"Current functional: {currentFunctional:E8}\t|\tInitial functional: {_initialFunctional:E8} \n "
+                $"Current functional: {currentFunctional:E8}\t|\tInitial functional: {_initialFunctional:E8}\n "
                 + $"(Current functional) / (Initial functional): {functionalDiv}\t|\tFunctional threshold: {inversionOptions.FunctionalThreshold}"
             );
             Console.ResetColor();
@@ -109,6 +111,13 @@ public class GaussNewtonInversionService(
                 }
             }
 
+            // Проверка на выход по времени
+            if (inversionOptions.UseTimeThreshold && _timer.Elapsed.TotalMinutes >= inversionOptions.TimeThreshold)
+            {
+                Console.WriteLine("The time is out");
+                break;
+            }
+
             previousFunctional = currentFunctional;
 
             // Построение A
@@ -129,7 +138,7 @@ public class GaussNewtonInversionService(
             var updatedMu = inversionService.Invert(
                 currentMesh,
                 modelValues,
-                observedValues,
+                trueValues,
                 matrixJ,
                 modelParameters, // текущие значения мю
                 inversionOptions,

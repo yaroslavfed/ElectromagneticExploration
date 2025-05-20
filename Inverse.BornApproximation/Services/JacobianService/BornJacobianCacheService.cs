@@ -1,4 +1,5 @@
-﻿using Electromagnetic.Common.Data.Domain;
+﻿using System.Collections.Concurrent;
+using Electromagnetic.Common.Data.Domain;
 using Inverse.SharedCore.DirectTaskService;
 
 namespace Inverse.BornApproximation.Services.JacobianService;
@@ -10,7 +11,8 @@ public class BornJacobianCacheService(
     IDirectTaskService directTaskService
 ) : IBornJacobianCacheService
 {
-    private double[,]? _cachedJacobian;
+    private          double[,]?         _cachedJacobian;
+    private readonly ConcurrentBag<int> _calculationProgress = [];
 
     public async Task<double[,]> BuildOnceAsync(
         Mesh mesh,
@@ -22,25 +24,35 @@ public class BornJacobianCacheService(
     {
         if (_cachedJacobian is
             { })
+        {
+            Console.WriteLine("Jacobian cache is already cached");
             return _cachedJacobian;
+        }
 
-        int m = sensors.Count;
-        int n = mesh.Elements.Count;
+        _calculationProgress.Clear();
+
+        var m = sensors.Count;
+        var n = mesh.Elements.Count;
         var jacobian = new double[m, n];
 
         var tasks = new List<Task>();
         var semaphore = new SemaphoreSlim(Environment.ProcessorCount);
 
-        for (int j = 0; j < n; j++)
+        for (var j = 0; j < n; j++)
         {
             await semaphore.WaitAsync();
-            int localJ = j;
+            var localJ = j;
 
             var task = Task.Run(async () =>
                 {
+                    Console.WriteLine($"Jacobian calculation started at the element {localJ}");
                     try
                     {
+                        Console.WriteLine($"Cloning mesh started at the element {localJ}");
                         var perturbedMesh = CloneMeshWithPerturbedMu(mesh, localJ);
+                        Console.WriteLine($"Cloning mesh finished at the element {localJ}");
+
+                        Console.WriteLine($"Direct task started at the element {localJ}");
                         var perturbedField = await directTaskService.CalculateDirectTaskAsync(
                             perturbedMesh,
                             sensors,
@@ -48,14 +60,18 @@ public class BornJacobianCacheService(
                             primaryField
                         );
                         var perturbedValues = perturbedField.Select(s => s.Magnitude).ToArray();
+                        Console.WriteLine($"Direct task finished at the element {localJ}");
 
-                        double originalMu = mesh.Elements[localJ].Mu;
-                        double delta = ComputeDeltaMu(originalMu);
+                        var originalMu = mesh.Elements[localJ].Mu;
+                        var delta = ComputeDeltaMu(originalMu);
 
-                        for (int i = 0; i < m; i++)
+                        for (var i = 0; i < m; i++)
                         {
                             jacobian[i, localJ] = (perturbedValues[i] - currentValues[i]) / delta;
                         }
+
+                        _calculationProgress.Add(localJ);
+                        Console.WriteLine($"Jacobian calculation is filled {_calculationProgress.Count}/{n}");
                     } finally
                     {
                         semaphore.Release();
@@ -104,8 +120,8 @@ public class BornJacobianCacheService(
             clonedElements.Add(new FiniteElement { Edges = clonedEdges, Mu = originalElement.Mu });
         }
 
-        double originalMu = clonedElements[indexToPerturb].Mu;
-        double delta = ComputeDeltaMu(originalMu);
+        var originalMu = clonedElements[indexToPerturb].Mu;
+        var delta = ComputeDeltaMu(originalMu);
         clonedElements[indexToPerturb].Mu += delta;
 
         return new Mesh { Elements = clonedElements };

@@ -5,7 +5,7 @@ namespace Inverse.BornApproximation.Services.BornInversionService;
 
 public interface IBornInversionService
 {
-    Task<double[]> AdaptiveInvertAsync(
+    Task AdaptiveInvertAsync(
         IReadOnlyList<FieldSample> trueModelValues,
         IReadOnlyList<CurrentSegment> sources,
         IReadOnlyList<Sensor> sensors,
