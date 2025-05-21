@@ -19,12 +19,15 @@ internal class Startup(
         Console.WriteLine("1 - both fields\t2 - only second field");
         var command = int.TryParse(Console.ReadLine(), out var number);
 
+        var timer = Stopwatch.StartNew();
         var values = command switch
         {
             true when number == 1 => await CalculateBothFields(),
             true when number == 2 => await CalculateOnlySecondField(),
             _                     => throw new ArgumentException()
         };
+        timer.Stop();
+        Console.WriteLine($"Elapsed time: {timer.Elapsed.TotalMinutes} ms");
 
         var json = JsonSerializer.Serialize(values, new JsonSerializerOptions { WriteIndented = true });
         await File.WriteAllTextAsync("field_data.json", json);
