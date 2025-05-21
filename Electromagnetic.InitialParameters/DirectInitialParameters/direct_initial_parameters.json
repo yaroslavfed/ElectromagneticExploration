@@ -8,9 +8,9 @@
     "zStepToBounds": 10
   },
   "splittingParameters": {
-    "xSplittingCoefficient": 20,
-    "ySplittingCoefficient": 20,
-    "zSplittingCoefficient": 20,
+    "xSplittingCoefficient": 10,
+    "ySplittingCoefficient": 10,
+    "zSplittingCoefficient": 10,
     "xMultiplyCoefficient": 1,
     "yMultiplyCoefficient": 1,
     "zMultiplyCoefficient": 1
