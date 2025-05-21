@@ -395,7 +395,7 @@ if __name__ == "__main__":
         plot_finite_element_mesh(
             elements=elements,
             sensors=sensors,
-            x_slice=0,
+            x_slice=7,
             y_slice=0,
             z_slice=-15
         )

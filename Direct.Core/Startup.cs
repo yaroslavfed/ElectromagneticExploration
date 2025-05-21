@@ -101,10 +101,10 @@ internal class Startup(
         testSessionParameters.Sensors = SensorGenerator.GenerateXYPlaneSensors(
             xMin: -10,
             xMax: 10,
-            xCount: 5,
+            xCount: 10,
             yMin: -10,
             yMax: 10,
-            yCount: 5,
+            yCount: 10,
             zLevel: 0,
             component: ESensorComponent.Bz
         );

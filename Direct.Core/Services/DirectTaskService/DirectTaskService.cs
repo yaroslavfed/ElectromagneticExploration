@@ -5,6 +5,7 @@ using Direct.Core.Services.PlotService;
 using Direct.Core.Services.SourceProvider;
 using Direct.Core.Services.TestSessionService;
 using Electromagnetic.Common.Data.Domain;
+using MathNet.Numerics;
 using MathNet.Numerics.LinearAlgebra.Double;
 using Vector = Electromagnetic.Common.Data.Domain.Vector;
 
@@ -12,15 +13,36 @@ using Vector = Electromagnetic.Common.Data.Domain.Vector;
 
 namespace Direct.Core.Services.DirectTaskService;
 
-public class DirectTaskService(
-    ITestSessionService testSessionService,
-    ICurrentSourceProvider currentSourceProvider,
-    IAssemblyService assemblyService,
-    IBoundaryConditionService boundaryConditionService,
-    IPlotService plotService,
-    IBasisFunctionProvider basisFunctionProvider
-) : IDirectTaskService
+public class DirectTaskService : IDirectTaskService
 {
+    private readonly ITestSessionService       _testSessionService;
+    private readonly ICurrentSourceProvider    _currentSourceProvider;
+    private readonly IAssemblyService          _assemblyService;
+    private readonly IBoundaryConditionService _boundaryConditionService;
+    private readonly IPlotService              _plotService;
+    private readonly IBasisFunctionProvider    _basisFunctionProvider;
+
+    public DirectTaskService(
+        ITestSessionService testSessionService,
+        ICurrentSourceProvider currentSourceProvider,
+        IAssemblyService assemblyService,
+        IBoundaryConditionService boundaryConditionService,
+        IPlotService plotService,
+        IBasisFunctionProvider basisFunctionProvider
+    )
+    {
+        _testSessionService = testSessionService;
+        _currentSourceProvider = currentSourceProvider;
+        _assemblyService = assemblyService;
+        _boundaryConditionService = boundaryConditionService;
+        _plotService = plotService;
+        _basisFunctionProvider = basisFunctionProvider;
+
+        // Инициализация MKL
+        Control.UseNativeMKL();
+        Control.UseMultiThreading();
+    }
+
     public async Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(
         Mesh mesh,
         IReadOnlyList<Sensor> sensors,
@@ -112,13 +134,13 @@ public class DirectTaskService(
         var sensors = testSessionParameters.Sensors;
 
         // Построение сетки
-        var testSession = await testSessionService.CreateTestSessionAsync(testSessionParameters);
+        var testSession = await _testSessionService.CreateTestSessionAsync(testSessionParameters);
 
         if (showPlot)
-            await plotService.ShowPlotAsync(testSession.Mesh, sensors);
+            await _plotService.ShowPlotAsync(testSession.Mesh, sensors);
 
         // Источник тока
-        var sources = await currentSourceProvider.GetSourcesAsync(testSessionParameters.CurrentSource);
+        var sources = await _currentSourceProvider.GetSourcesAsync(testSessionParameters.CurrentSource);
 
         return await CalculateDirectTaskAsync(testSession.Mesh, sensors, sources);
     }
@@ -133,13 +155,13 @@ public class DirectTaskService(
         var sensors = testSessionParameters.Sensors;
 
         // Построение сетки
-        var testSession = await testSessionService.CreateTestSessionAsync(testSessionParameters);
+        var testSession = await _testSessionService.CreateTestSessionAsync(testSessionParameters);
 
         if (showPlot)
-            await plotService.ShowPlotAsync(testSession.Mesh, sensors);
+            await _plotService.ShowPlotAsync(testSession.Mesh, sensors);
 
         // Источник тока
-        var sources = await currentSourceProvider.GetSourcesAsync(testSessionParameters.CurrentSource);
+        var sources = await _currentSourceProvider.GetSourcesAsync(testSessionParameters.CurrentSource);
 
         return await CalculateDirectTaskAsync(testSession.Mesh, sensors, sources, primaryField);
     }
@@ -147,27 +169,28 @@ public class DirectTaskService(
     private async Task<Vector> CalculateElectroMagneticFEM(Mesh mesh, IReadOnlyList<CurrentSegment> sources)
     {
         // Построение матрицы жесткости и вектора правой части
-        var (globalMatrix, globalRhs) = await assemblyService.AssembleGlobalSystemAsync(mesh, sources);
+        var (globalMatrix, globalRhs) = await _assemblyService.AssembleGlobalSystemAsync(mesh, sources);
 
         // Применение краевых условий
-        await boundaryConditionService.ApplyBoundaryConditionsAsync(globalMatrix, globalRhs, mesh);
+        await _boundaryConditionService.ApplyBoundaryConditionsAsync(globalMatrix, globalRhs, mesh);
 
         // Построение СЛАУ
         var A = globalMatrix.ToMathNet();
         var b = globalRhs.ToMathNet();
+
+        // Проверка статуса MKL
+        Console.WriteLine($"MKL status is: {Control.NativeProviderPath}");
 
         // Решение СЛАУ
         var At = A.Transpose();
         var lambda = 1e-2;
         var AtA = At * A;
         var I = DenseMatrix.CreateIdentity(A.ColumnCount);
-
         var regularized = AtA + lambda * I;
         var rhs = At * b;
+        var q = regularized.Solve(rhs);
 
-        var x = regularized.Solve(rhs);
-
-        var solution = Vector.FromMathNet(x);
+        var solution = Vector.FromMathNet(q);
 
         return solution;
     }
@@ -205,7 +228,7 @@ public class DirectTaskService(
 
         for (int i = 0; i < element.Edges.Count; i++)
         {
-            var curlWi = basisFunctionProvider.GetCurl(element, i, sensor);
+            var curlWi = _basisFunctionProvider.GetCurl(element, i, sensor);
             var dofIndex = element.Edges[i].EdgeIndex;
             var coeff = solution[dofIndex];
 

@@ -8,9 +8,9 @@
     "zStepToBounds": 10
   },
   "splittingParameters": {
-    "xSplittingCoefficient": 5,
-    "ySplittingCoefficient": 5,
-    "zSplittingCoefficient": 5,
+    "xSplittingCoefficient": 20,
+    "ySplittingCoefficient": 20,
+    "zSplittingCoefficient": 20,
     "xMultiplyCoefficient": 1,
     "yMultiplyCoefficient": 1,
     "zMultiplyCoefficient": 1
@@ -24,32 +24,47 @@
     {
       "positioning": {
         "centerCoordinate": {
-          "x": 0,
+          "x": -7,
           "y": 0,
           "z": -15
         },
         "boundsDistance": {
-          "x": 3,
-          "y": 3,
+          "x": 5,
+          "y": 5,
           "z": 5
         }
       },
-      "mu": 1.2566e-3
+      "mu": 1.38226e-6
+    },
+    {
+      "positioning": {
+        "centerCoordinate": {
+          "x": 7,
+          "y": 0,
+          "z": -19
+        },
+        "boundsDistance": {
+          "x": 3,
+          "y": 5,
+          "z": 10
+        }
+      },
+      "mu": 1.38226e-6
     }
   ],
   "currentSource": {
     "start": {
       "x": -5,
-      "y": 0,
-      "z": 0
+      "y": -5,
+      "z": -5
     },
     "end": {
       "x": 5,
-      "y": 0,
-      "z": 0
+      "y": 5,
+      "z": -5
     },
-    "amperage": 1,
-    "segments": 5
+    "amperage": 5,
+    "segments": 10
   },
   "sensors": [
   ]
