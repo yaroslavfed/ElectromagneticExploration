@@ -18,11 +18,12 @@ public class AssemblyService : IAssemblyService
         IReadOnlyList<CurrentSegment> sources
     )
     {
-        // Собираем все глобальные уникальные рёбра
+        // 1. Кэшируем уникальные глобальные рёбра
         var globalEdges = mesh
                           .Elements
                           .SelectMany(e => e.Edges)
-                          .DistinctBy(e => e.EdgeIndex)
+                          .GroupBy(e => e.EdgeIndex)
+                          .Select(g => g.First())
                           .OrderBy(e => e.EdgeIndex)
                           .ToList();
 
@@ -31,16 +32,42 @@ public class AssemblyService : IAssemblyService
         var globalMatrix = new Matrix(dofCount, dofCount);
         var globalRhs = new Vector(dofCount);
 
-        foreach (var element in mesh.Elements)
-        {
-            var localMatrix = await _problemService.AssembleElementStiffnessMatrixAsync(element);
-            var localVector = await _problemService.AssembleElementRightHandVectorAsync(element, sources);
+        // 2. Параллелим сборку локальных матриц и векторов
+        var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
 
-            var globalIndices = element.GetGlobalEdgeIndices();
+        var locks = new object[dofCount];
+        for (int i = 0; i < dofCount; i++) locks[i] = new object();
 
-            globalMatrix.Assemble(localMatrix, globalIndices);
-            globalRhs.Assemble(localVector, globalIndices);
-        }
+        await Task.Run(() => Parallel.ForEach(
+                           mesh.Elements,
+                           parallelOptions,
+                           element =>
+                           {
+                               var localMatrix = _problemService.AssembleElementStiffnessMatrixAsync(element).Result;
+                               var localVector = _problemService.AssembleElementRightHandVectorAsync(element, sources)
+                                                                .Result;
+
+                               var globalIndices = element.GetGlobalEdgeIndices();
+
+                               // Безопасная вставка в глобальные матрицы
+                               for (int i = 0; i < globalIndices.Length; i++)
+                               {
+                                   int gi = globalIndices[i];
+
+                                   lock (locks[gi])
+                                   {
+                                       globalRhs[gi] += localVector[i];
+
+                                       for (int j = 0; j < globalIndices.Length; j++)
+                                       {
+                                           int gj = globalIndices[j];
+                                           globalMatrix[gi, gj] += localMatrix[i, j];
+                                       }
+                                   }
+                               }
+                           }
+                       )
+        );
 
         return (globalMatrix, globalRhs);
     }
