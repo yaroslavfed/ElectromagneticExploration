@@ -1,6 +1,4 @@
-﻿using Electromagnetic.Common.Extensions;
-
-namespace Electromagnetic.Common.Data.Domain;
+﻿namespace Electromagnetic.Common.Data.Domain;
 
 /// <summary>
 /// Параллелепипедальный КЭ векторного МКЭ
@@ -17,41 +15,29 @@ public record FiniteElement
     /// </summary>
     public double Mu { get; set; }
 
+    private (double MinX, double MaxX, double MinY, double MaxY, double MinZ, double MaxZ)? _cachedBounds;
+
     /// <summary>
-    /// Объем КЭ
+    /// Объём КЭ
     /// </summary>
-    public double Volume => this.GetSizes().X * this.GetSizes().Y * this.GetSizes().Z;
+    public double Volume
+    {
+        get
+        {
+            var (minX, maxX, minY, maxY, minZ, maxZ) = GetBounds();
+            return (maxX - minX) * (maxY - minY) * (maxZ - minZ);
+        }
+    }
 
     public Point3D GetCenter()
     {
-        // Собираем все уникальные узлы, чтобы найти границы
-        var nodes = Edges.SelectMany(e => e.Nodes).DistinctBy(n => n.NodeIndex).ToList();
-
-        var minX = nodes.Min(n => n.Coordinate.X);
-        var maxX = nodes.Max(n => n.Coordinate.X);
-
-        var minY = nodes.Min(n => n.Coordinate.Y);
-        var maxY = nodes.Max(n => n.Coordinate.Y);
-
-        var minZ = nodes.Min(n => n.Coordinate.Z);
-        var maxZ = nodes.Max(n => n.Coordinate.Z);
-
-        return new() { X = (minX + maxX) / 2.0, Y = (minY + maxY) / 2.0, Z = (minZ + maxZ) / 2.0 };
+        var (minX, maxX, minY, maxY, minZ, maxZ) = GetBounds();
+        return new Point3D { X = (minX + maxX) / 2.0, Y = (minY + maxY) / 2.0, Z = (minZ + maxZ) / 2.0 };
     }
 
     public bool Contains(Point3D point, double epsilon = 1e-8)
     {
-        var nodes = Edges.SelectMany(e => e.Nodes).DistinctBy(n => n.NodeIndex).ToList();
-
-        var minX = nodes.Min(n => n.Coordinate.X);
-        var maxX = nodes.Max(n => n.Coordinate.X);
-
-        var minY = nodes.Min(n => n.Coordinate.Y);
-        var maxY = nodes.Max(n => n.Coordinate.Y);
-
-        var minZ = nodes.Min(n => n.Coordinate.Z);
-        var maxZ = nodes.Max(n => n.Coordinate.Z);
-
+        var (minX, maxX, minY, maxY, minZ, maxZ) = GetBounds();
         return point.X >= minX - epsilon
                && point.X <= maxX + epsilon
                && point.Y >= minY - epsilon
@@ -62,19 +48,35 @@ public record FiniteElement
 
     public (double MinX, double MaxX, double MinY, double MaxY, double MinZ, double MaxZ) GetBounds()
     {
-        var pointsX = from edges in Edges from nodes in edges.Nodes select nodes.Coordinate.X;
-        var pointsY = from edges in Edges from nodes in edges.Nodes select nodes.Coordinate.Y;
-        var pointsZ = from edges in Edges from nodes in edges.Nodes select nodes.Coordinate.Z;
+        if (_cachedBounds.HasValue)
+            return _cachedBounds.Value;
 
-        var minX = pointsX.Min();
-        var maxX = pointsX.Max();
+        double minX = double.MaxValue, maxX = double.MinValue;
+        double minY = double.MaxValue, maxY = double.MinValue;
+        double minZ = double.MaxValue, maxZ = double.MinValue;
 
-        var minY = pointsY.Min();
-        var maxY = pointsY.Max();
+        var visited = new HashSet<int>();
 
-        var minZ = pointsZ.Min();
-        var maxZ = pointsZ.Max();
+        foreach (var edge in Edges)
+        {
+            foreach (var node in edge.Nodes)
+            {
+                if (!visited.Add(node.NodeIndex)) continue;
 
-        return (minX, maxX, minY, maxY, minZ, maxZ);
+                var coord = node.Coordinate;
+
+                if (coord.X < minX) minX = coord.X;
+                if (coord.X > maxX) maxX = coord.X;
+
+                if (coord.Y < minY) minY = coord.Y;
+                if (coord.Y > maxY) maxY = coord.Y;
+
+                if (coord.Z < minZ) minZ = coord.Z;
+                if (coord.Z > maxZ) maxZ = coord.Z;
+            }
+        }
+
+        _cachedBounds = (minX, maxX, minY, maxY, minZ, maxZ);
+        return _cachedBounds.Value;
     }
 }

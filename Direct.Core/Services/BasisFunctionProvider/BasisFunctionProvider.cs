@@ -14,13 +14,13 @@ public class BasicFunctionProvider : IBasisFunctionProvider
         var dy = new Point3D(point.X, point.Y + h, point.Z);
         var dz = new Point3D(point.X, point.Y, point.Z + h);
 
-        var f_dx = GetBasicFunctions(element, number, dx);
-        var f_dy = GetBasicFunctions(element, number, dy);
-        var f_dz = GetBasicFunctions(element, number, dz);
+        var fDx = GetBasicFunctions(element, number, dx);
+        var fDy = GetBasicFunctions(element, number, dy);
+        var fDz = GetBasicFunctions(element, number, dz);
 
-        double curlX = (f_dz.Y - f.Y) / h - (f_dy.Z - f.Z) / h;
-        double curlY = (f_dx.Z - f.Z) / h - (f_dz.X - f.X) / h;
-        double curlZ = (f_dy.X - f.X) / h - (f_dx.Y - f.Y) / h;
+        double curlX = (fDz.Y - f.Y) / h - (fDy.Z - f.Z) / h;
+        double curlY = (fDx.Z - f.Z) / h - (fDz.X - f.X) / h;
+        double curlZ = (fDy.X - f.X) / h - (fDx.Y - f.Y) / h;
 
         return new(curlX, curlY, curlZ);
     }

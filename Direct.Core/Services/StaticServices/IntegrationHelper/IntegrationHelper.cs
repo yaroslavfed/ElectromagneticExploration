@@ -6,39 +6,56 @@ public static class IntegrationHelper
 {
     public static List<IntegrationPoint> GetIntegrationPoints(FiniteElement element)
     {
-        var nodes = element.Edges.SelectMany(e => e.Nodes).DistinctBy(n => n.NodeIndex).ToList();
+        // Извлекаем уникальные координаты узлов без ToList
+        var coords = new HashSet<Point3D>();
 
-        var minX = nodes.Min(n => n.Coordinate.X);
-        var maxX = nodes.Max(n => n.Coordinate.X);
-        var minY = nodes.Min(n => n.Coordinate.Y);
-        var maxY = nodes.Max(n => n.Coordinate.Y);
-        var minZ = nodes.Min(n => n.Coordinate.Z);
-        var maxZ = nodes.Max(n => n.Coordinate.Z);
+        foreach (var edge in element.Edges)
+        {
+            foreach (var node in edge.Nodes)
+            {
+                coords.Add(node.Coordinate); // предполагается, что Point3D реализует Equals + GetHashCode
+            }
+        }
 
-        var centerX = (minX + maxX) / 2.0;
-        var centerY = (minY + maxY) / 2.0;
-        var centerZ = (minZ + maxZ) / 2.0;
+        // Инициализируем экстремумы
+        double minX = double.MaxValue, maxX = double.MinValue;
+        double minY = double.MaxValue, maxY = double.MinValue;
+        double minZ = double.MaxValue, maxZ = double.MinValue;
 
-        var points = new List<IntegrationPoint>();
+        foreach (var p in coords)
+        {
+            if (p.X < minX) minX = p.X;
+            if (p.X > maxX) maxX = p.X;
+
+            if (p.Y < minY) minY = p.Y;
+            if (p.Y > maxY) maxY = p.Y;
+
+            if (p.Z < minZ) minZ = p.Z;
+            if (p.Z > maxZ) maxZ = p.Z;
+        }
+
+        var centerX = (minX + maxX) * 0.5;
+        var centerY = (minY + maxY) * 0.5;
+        var centerZ = (minZ + maxZ) * 0.5;
+
+        // Предвыделяем список нужного размера
+        var points = new List<IntegrationPoint>(8);
         var weight = element.Volume / 8.0;
 
-        foreach (var x in new[]
-        {
-            minX,
-            centerX
-        })
-            foreach (var y in new[]
-            {
-                minY,
-                centerY
-            })
-                foreach (var z in new[]
+        double[] xCoords = [minX, centerX];
+        double[] yCoords = [minY, centerY];
+        double[] zCoords = [minZ, centerZ];
+
+        for (int xi = 0; xi < 2; xi++)
+            for (int yi = 0; yi < 2; yi++)
+                for (int zi = 0; zi < 2; zi++)
                 {
-                    minZ,
-                    centerZ
-                })
-                {
-                    points.Add(new() { Position = new(x, y, z), Weight = weight });
+                    points.Add(
+                        new()
+                        {
+                            Position = new(xCoords[xi], yCoords[yi], zCoords[zi]), Weight = weight
+                        }
+                    );
                 }
 
         return points;

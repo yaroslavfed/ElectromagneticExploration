@@ -24,16 +24,12 @@ public class ProblemService : IProblemService
 
         var integrationPoints = IntegrationHelper.GetIntegrationPoints(element);
         int pointCount = integrationPoints.Count;
-
+        
         // Предвычисление всех роторов
         var curlCache = new Vector3D[edgeCount, pointCount];
         for (int i = 0; i < edgeCount; i++)
-        {
             for (int q = 0; q < pointCount; q++)
-            {
                 curlCache[i, q] = _basisFunctionProvider.GetCurl(element, i, integrationPoints[q].Position);
-            }
-        }
 
         for (int i = 0; i < edgeCount; i++)
         {
@@ -43,7 +39,9 @@ public class ProblemService : IProblemService
 
                 for (int q = 0; q < pointCount; q++)
                 {
-                    sum += (1.0 / element.Mu) * curlCache[i, q].Dot(curlCache[j, q]) * integrationPoints[q].Weight;
+                    var curlI = curlCache[i, q];
+                    var curlJ = curlCache[j, q];
+                    sum += (1.0 / element.Mu) * curlI.Dot(curlJ) * integrationPoints[q].Weight;
                 }
 
                 localMatrix[i, j] = sum;
@@ -64,13 +62,11 @@ public class ProblemService : IProblemService
         foreach (var segment in sources)
         {
             if (!element.Contains(segment.Center))
-            {
                 continue;
-            }
 
             for (int i = 0; i < edgeCount; i++)
             {
-                var phi = _basisFunctionProvider.GetValue(element, i, segment.Center);
+                var phi = _basisFunctionProvider.GetValue(element, i, segment.Center); // φ_i(r_k)
                 var dot = segment.Direction.Dot(phi);
                 localVector[i] += dot * segment.Current;
             }
