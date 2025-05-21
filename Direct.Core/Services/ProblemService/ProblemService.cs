@@ -66,7 +66,7 @@ public class ProblemService : IProblemService
 
             for (int i = 0; i < edgeCount; i++)
             {
-                var phi = _basisFunctionProvider.GetValue(element, i, segment.Center); // φ_i(r_k)
+                var phi = _basisFunctionProvider.GetValue(element, i, segment.Center);
                 var dot = segment.Direction.Dot(phi);
                 localVector[i] += dot * segment.Current;
             }
