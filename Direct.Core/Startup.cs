@@ -33,7 +33,7 @@ internal class Startup(
         await File.WriteAllTextAsync("field_data.json", json);
         Console.WriteLine("The file field_data.json has been created.");
 
-        Console.WriteLine("Start drowning plot");
+        Console.WriteLine("Start drowning values plot");
         var scriptPath = Path.Combine(Directory.GetCurrentDirectory(), "Scripts\\contour_plot.py");
         using Process myProcess = new();
         myProcess.StartInfo.FileName = "python";
@@ -42,7 +42,7 @@ internal class Startup(
         myProcess.StartInfo.RedirectStandardInput = true;
         myProcess.StartInfo.RedirectStandardOutput = false;
         myProcess.Start();
-        Console.WriteLine("End drowning plot");
+        Console.WriteLine("End drowning values plot");
 
         Console.ReadLine();
     }

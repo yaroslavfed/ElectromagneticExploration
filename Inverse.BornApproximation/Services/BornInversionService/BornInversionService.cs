@@ -1,5 +1,7 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
+using Direct.Core.Services.PlotService;
 using Electromagnetic.Common.Data.Domain;
 using Electromagnetic.Common.Extensions;
 using Electromagnetic.Common.Models;
@@ -19,11 +21,13 @@ namespace Inverse.BornApproximation.Services.BornInversionService;
 /// </summary>
 public class BornInversionService(
     IDirectTaskService directTaskService,
-    IBornJacobianCacheService jacobianCacheService
+    IBornJacobianCacheService jacobianCacheService,
+    IPlotService plotService
 ) : IBornInversionService
 {
-    private readonly Stopwatch _timer = new();
-    private          double    _initialFunctional;
+    private readonly Stopwatch                         _timer = new();
+    private          double                            _initialFunctional;
+    private          ConcurrentDictionary<int, double> _functionalList = [];
 
     public async Task AdaptiveInvertAsync(
         IReadOnlyList<FieldSample> trueModelValues,
@@ -51,19 +55,13 @@ public class BornInversionService(
         var mu = Enumerable.Repeat(baseMu, n).ToArray();
 
         // Строим фоновую модель и решаем A0 (один раз)
-        Console.WriteLine("Cloning base mesh started");
         var mesh0 = currentMesh.CloneWithUniformMu(baseMu);
-        Console.WriteLine("Cloning base mesh finished");
 
-        Console.WriteLine("Direct task started");
         var baseField = await directTaskService.CalculateDirectTaskAsync(mesh0, sensors, sources, primaryField);
         var eps0 = baseField.Select(f => f.Magnitude).ToArray();
-        Console.WriteLine("Direct task finished");
 
         // Строим J на фоне один раз
-        Console.WriteLine("Jacobian calculation started");
         var J = await jacobianCacheService.BuildOnceAsync(mesh0, sensors, sources, eps0, primaryField);
-        Console.WriteLine("Jacobian calculation finished");
         var matJ = Matrix<double>.Build.DenseOfArray(J);
         var JT = matJ.Transpose();
         var JTJ = JT * matJ;
@@ -81,7 +79,6 @@ public class BornInversionService(
             for (int j = 0; j < n; j++)
                 currentMesh.Elements[j].Mu = mu[j];
 
-            Console.WriteLine("Calculating direct task was started");
             var epsField = await directTaskService.CalculateDirectTaskAsync(
                 currentMesh,
                 sensors,
@@ -89,7 +86,6 @@ public class BornInversionService(
                 primaryField
             );
             var modelValues = epsField.Select(f => f.Magnitude).ToArray();
-            Console.WriteLine("Calculating direct task was finished");
 
             // Расчёт невязки и вычисление функционала
             currentFunctional = .0;
@@ -120,7 +116,7 @@ public class BornInversionService(
 
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine(
-                $"Current functional: {currentFunctional:E8}\t|\tInitial functional: {_initialFunctional:E8}\n "
+                $"Current functional: {currentFunctional:E8}\t|\tInitial functional: {_initialFunctional:E8}\n"
                 + $"(Current functional) / (Initial functional): {functionalDiv}\t|\tFunctional threshold: {inversionOptions.FunctionalThreshold}"
             );
             Console.ResetColor();
@@ -166,6 +162,7 @@ public class BornInversionService(
             for (int i = 0; i < n; i++)
                 mu[i] += delta[i];
 
+            _functionalList.TryAdd(iteration, currentFunctional);
             Console.WriteLine($"Elements: {currentMesh.Elements.Count}");
         }
 
@@ -176,34 +173,19 @@ public class BornInversionService(
         Console.WriteLine($"Initial functional: {_initialFunctional:E8}\t|\tLast functional: {currentFunctional:E8}");
         Console.ResetColor();
 
-        await ShowPlotAsync(currentMesh);
+        Console.WriteLine("Functionals:");
+        foreach (var functional in _functionalList)
+            Console.WriteLine($"{functional.Key}: {functional.Value:E8}");
+
+        await ShowPlotAsync(currentMesh, sensors);
 
         var values = await directTaskService.CalculateDirectTaskAsync(currentMesh, sensors, sources, primaryField);
         await ShowValuesAsync(values);
     }
 
-    private async Task ShowPlotAsync(Mesh mesh)
+    private async Task ShowPlotAsync(Mesh mesh, IReadOnlyList<Sensor> sensors)
     {
-        const string jsonFile = "inverse.json";
-        const string pythonPath = "python";
-        const string outputImage = "inverse.png";
-
-        await File.WriteAllTextAsync(jsonFile, JsonSerializer.Serialize(mesh));
-        var currentDirectory = Directory.GetCurrentDirectory();
-        var scriptPath = Path.Combine(currentDirectory, "Scripts\\inverse_chart.py");
-
-        var psi = new ProcessStartInfo
-        {
-            FileName = pythonPath,
-            Arguments = $"{scriptPath} {jsonFile} {outputImage}",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        var process = Process.Start(psi);
-        await process?.WaitForExitAsync()!;
+        await plotService.ShowPlotAsync(mesh, sensors);
     }
 
     private async Task ShowValuesAsync(IReadOnlyList<FieldSample> values)

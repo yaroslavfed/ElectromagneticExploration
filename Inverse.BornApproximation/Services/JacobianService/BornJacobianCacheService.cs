@@ -45,14 +45,10 @@ public class BornJacobianCacheService(
 
             var task = Task.Run(async () =>
                 {
-                    Console.WriteLine($"Jacobian calculation started at the element {localJ}");
                     try
                     {
-                        Console.WriteLine($"Cloning mesh started at the element {localJ}");
                         var perturbedMesh = CloneMeshWithPerturbedMu(mesh, localJ);
-                        Console.WriteLine($"Cloning mesh finished at the element {localJ}");
-
-                        Console.WriteLine($"Direct task started at the element {localJ}");
+                       
                         var perturbedField = await directTaskService.CalculateDirectTaskAsync(
                             perturbedMesh,
                             sensors,
@@ -60,7 +56,6 @@ public class BornJacobianCacheService(
                             primaryField
                         );
                         var perturbedValues = perturbedField.Select(s => s.Magnitude).ToArray();
-                        Console.WriteLine($"Direct task finished at the element {localJ}");
 
                         var originalMu = mesh.Elements[localJ].Mu;
                         var delta = ComputeDeltaMu(originalMu);

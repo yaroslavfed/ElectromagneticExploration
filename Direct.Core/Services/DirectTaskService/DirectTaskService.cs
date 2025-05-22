@@ -178,9 +178,6 @@ public class DirectTaskService : IDirectTaskService
         var A = globalMatrix.ToMathNet();
         var b = globalRhs.ToMathNet();
 
-        // Проверка статуса MKL
-        Console.WriteLine($"MKL status is: {Control.NativeProviderPath}");
-
         // Решение СЛАУ
         var At = A.Transpose();
         var lambda = 1e-2;

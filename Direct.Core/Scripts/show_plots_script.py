@@ -128,7 +128,7 @@ def plot_finite_element_mesh(
     # Настройка цветовой карты
     mues = [el.Mu for el in elements]
     norm = plt.Normalize(min(mues), max(mues))
-    cmap = plt.get_cmap('Greys')
+    cmap = plt.get_cmap('RdYlGn_r')
     mappable = ScalarMappable(norm=norm, cmap=cmap)
 
     # Сбор всех координат для расчета границ
@@ -355,7 +355,7 @@ def plot_finite_element_mesh(
 
     # Цветовая шкала
     cbar_ax = fig.add_axes([0.90, 0.15, 0.02, 0.7])
-    fig.colorbar(mappable, cax=cbar_ax, label='Плотность (kg/m³)')
+    fig.colorbar(mappable, cax=cbar_ax, label='Mu')
 
     plt.savefig("graph.png", dpi=300)
     plt.show()

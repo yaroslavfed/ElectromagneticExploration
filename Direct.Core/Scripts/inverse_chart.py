@@ -10,7 +10,7 @@ def load_mesh(filepath):
     try:
         with open(filepath, 'r') as f:
             data = json.load(f)
-        return data.get('Cells', [])
+        return data.get('Elements', [])
     except Exception as e:
         print(f"Ошибка загрузки файла: {e}")
         return []

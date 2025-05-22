@@ -1,5 +1,7 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
+using Direct.Core.Services.PlotService;
 using Electromagnetic.Common.Data.Domain;
 using Electromagnetic.Common.Models;
 using Inverse.GaussNewton.Services.InverseService;
@@ -13,11 +15,13 @@ namespace Inverse.GaussNewton.Services.GaussNewtonInversionService;
 public class GaussNewtonInversionService(
     IInversionService inversionService,
     IGaussNewtonJacobianService gaussNewtonJacobianService,
-    IDirectTaskService directTaskService
+    IDirectTaskService directTaskService,
+    IPlotService plotService
 ) : IGaussNewtonInversionService
 {
-    private readonly Stopwatch _timer = new();
-    private          double    _initialFunctional;
+    private readonly Stopwatch                         _timer = new();
+    private          double                            _initialFunctional;
+    private          ConcurrentDictionary<int, double> _functionalList = [];
 
     /// <inheritdoc />
     public async Task AdaptiveInvertAsync(
@@ -46,7 +50,6 @@ public class GaussNewtonInversionService(
             Console.WriteLine($"\n== Gauss-Newton inversion: iteration[{iteration + 1}] ==");
 
             // Расчёт прямой задачи
-            Console.WriteLine("Calculating direct task was started");
             var anomalySensors = await directTaskService.CalculateDirectTaskAsync(
                 currentMesh,
                 sensors,
@@ -54,7 +57,6 @@ public class GaussNewtonInversionService(
                 primaryField
             );
             var modelValues = anomalySensors.Select(s => s.Magnitude).ToArray();
-            Console.WriteLine("Calculating direct task was finished");
 
             // Расчёт невязки и вычисление функционала
             currentFunctional = .0;
@@ -85,7 +87,7 @@ public class GaussNewtonInversionService(
 
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine(
-                $"Current functional: {currentFunctional:E8}\t|\tInitial functional: {_initialFunctional:E8}\n "
+                $"Current functional: {currentFunctional:E8}\t|\tInitial functional: {_initialFunctional:E8}\n"
                 + $"(Current functional) / (Initial functional): {functionalDiv}\t|\tFunctional threshold: {inversionOptions.FunctionalThreshold}"
             );
             Console.ResetColor();
@@ -122,6 +124,7 @@ public class GaussNewtonInversionService(
 
             // Построение A
             Console.WriteLine("Calculating jacobian was started");
+            var timer = Stopwatch.StartNew();
             var matrixJ = await gaussNewtonJacobianService.BuildAsync(
                 currentMesh,
                 sensors,
@@ -129,7 +132,8 @@ public class GaussNewtonInversionService(
                 modelValues,
                 primaryField
             );
-            Console.WriteLine("Calculating jacobian was finished");
+            timer.Stop();
+            Console.WriteLine($"Calculating jacobian was finished in time: {timer.Elapsed.TotalMinutes} minutes");
 
             // Текущие параметры модели
             var modelParameters = currentMesh.Elements.Select(c => c.Mu).ToArray();
@@ -148,6 +152,8 @@ public class GaussNewtonInversionService(
             // Обновляем плотности ячеек
             for (int j = 0; j < currentMesh.Elements.Count; j++)
                 currentMesh.Elements[j].Mu = updatedMu[j];
+
+            _functionalList.TryAdd(iteration, currentFunctional);
             Console.WriteLine($"Elements: {currentMesh.Elements.Count}");
         }
 
@@ -158,34 +164,19 @@ public class GaussNewtonInversionService(
         Console.WriteLine($"Initial functional: {_initialFunctional:E8}\t|\tLast functional: {currentFunctional:E8}");
         Console.ResetColor();
 
-        await ShowPlotAsync(currentMesh);
+        Console.WriteLine("Functionals:");
+        foreach (var functional in _functionalList)
+            Console.WriteLine($"{functional.Key}: {functional.Value:E8}");
+
+        await ShowPlotAsync(currentMesh, sensors);
 
         var values = await directTaskService.CalculateDirectTaskAsync(currentMesh, sensors, sources, primaryField);
         await ShowValuesAsync(values);
     }
 
-    private async Task ShowPlotAsync(Mesh mesh)
+    private async Task ShowPlotAsync(Mesh mesh, IReadOnlyList<Sensor> sensors)
     {
-        const string jsonFile = "inverse.json";
-        const string pythonPath = "python";
-        const string outputImage = "inverse.png";
-
-        await File.WriteAllTextAsync(jsonFile, JsonSerializer.Serialize(mesh));
-        var currentDirectory = Directory.GetCurrentDirectory();
-        var scriptPath = Path.Combine(currentDirectory, "Scripts\\inverse_chart.py");
-
-        var psi = new ProcessStartInfo
-        {
-            FileName = pythonPath,
-            Arguments = $"{scriptPath} {jsonFile} {outputImage}",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        var process = Process.Start(psi);
-        await process?.WaitForExitAsync()!;
+        await plotService.ShowPlotAsync(mesh, sensors);
     }
 
     private async Task ShowValuesAsync(IReadOnlyList<FieldSample> values)

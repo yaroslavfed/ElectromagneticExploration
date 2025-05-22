@@ -22,7 +22,7 @@ public class PlotService : IPlotService
         var json = JsonConvert.SerializeObject(model, Formatting.Indented);
         File.WriteAllText("mesh_data.json", json);
 
-        Console.WriteLine("Data saved to mesh_data.json");
+        Console.WriteLine("Data is saved to mesh_data.json");
 
         var outputPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
@@ -45,6 +45,7 @@ public class PlotService : IPlotService
     {
         await CreateDataFiles(mesh, sensors);
 
+        Console.WriteLine("Start drowning mesh plot");
         using Process myProcess = new();
         myProcess.StartInfo.FileName = "python";
         myProcess.StartInfo.Arguments = @"Scripts/show_plots_script.py";
@@ -52,5 +53,6 @@ public class PlotService : IPlotService
         myProcess.StartInfo.RedirectStandardInput = true;
         myProcess.StartInfo.RedirectStandardOutput = false;
         myProcess.Start();
+        Console.WriteLine("End drowning mesh plot");
     }
 }

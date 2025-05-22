@@ -1,4 +1,5 @@
 ﻿import json
+
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 import numpy as np
@@ -24,7 +25,7 @@ Zi = interpolator(Xi, Yi)
 
 # Визуализация
 plt.figure(figsize=(8, 6))
-contour = plt.contourf(Xi, Yi, Zi, levels=20, cmap='viridis')
+contour = plt.contourf(Xi, Yi, Zi, levels=20, cmap='turbo')
 plt.colorbar(contour, label='|B| (магнитное поле)')
 plt.xlabel("X (м)")
 plt.ylabel("Y (м)")
