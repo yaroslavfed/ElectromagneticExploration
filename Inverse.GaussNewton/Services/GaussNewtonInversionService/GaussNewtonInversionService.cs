@@ -53,8 +53,7 @@ public class GaussNewtonInversionService(
             var anomalySensors = await directTaskService.CalculateDirectTaskAsync(
                 currentMesh,
                 sensors,
-                sources,
-                primaryField
+                sources
             );
             var modelValues = anomalySensors.Select(s => s.Magnitude).ToArray();
 
@@ -170,7 +169,7 @@ public class GaussNewtonInversionService(
 
         await ShowPlotAsync(currentMesh, sensors);
 
-        var values = await directTaskService.CalculateDirectTaskAsync(currentMesh, sensors, sources, primaryField);
+        var values = await directTaskService.CalculateDirectTaskAsync(currentMesh, sensors, sources);
         await ShowValuesAsync(values);
     }
 

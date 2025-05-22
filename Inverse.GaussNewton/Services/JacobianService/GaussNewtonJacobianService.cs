@@ -43,8 +43,7 @@ public class GaussNewtonJacobianService(
                         var perturbedField = await directTaskService.CalculateDirectTaskAsync(
                             perturbedMesh,
                             sensors,
-                            sources,
-                            primaryField
+                            sources
                         );
                         var perturbedValues = perturbedField.Select(s => s.Magnitude).ToArray();
 
