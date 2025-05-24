@@ -3,25 +3,19 @@ using System.Diagnostics;
 using System.Text.Json;
 using Direct.Core.Services.PlotService;
 using Electromagnetic.Common.Data.Domain;
-using Electromagnetic.Common.Extensions;
 using Electromagnetic.Common.Models;
 using Inverse.BornApproximation.Services.JacobianService;
-using Inverse.SharedCore.DirectTaskService;
-using MathNet.Numerics.LinearAlgebra;
+using Inverse.SharedCore.Services.DirectTaskService;
+using Inverse.SharedCore.Services.InverseService;
 
 // ReSharper disable InconsistentNaming
 
 namespace Inverse.BornApproximation.Services.BornInversionService;
 
-/// <summary>
-/// Реализация метода Борновских приближений для решения обратной задачи.
-/// </summary>
-/// <summary>
-/// Итерационный метод Борна с фиксированным rot(A0) и обновлением правой части.
-/// </summary>
 public class BornInversionService(
+    IInversionService inversionService,
+    IBornJacobianService bornJacobianService,
     IDirectTaskService directTaskService,
-    IBornJacobianCacheService jacobianCacheService,
     IPlotService plotService
 ) : IBornInversionService
 {
@@ -29,11 +23,12 @@ public class BornInversionService(
     private          double                            _initialFunctional;
     private          ConcurrentDictionary<int, double> _functionalList = [];
 
+    /// <inheritdoc />
     public async Task AdaptiveInvertAsync(
         IReadOnlyList<FieldSample> trueModelValues,
         IReadOnlyList<CurrentSegment> sources,
         IReadOnlyList<Sensor> sensors,
-        IReadOnlyList<FieldSample> primaryField,
+        IReadOnlyList<FieldSample> emptyValues,
         double baseMu,
         Mesh initialMesh,
         InverseOptions inversionOptions,
@@ -44,57 +39,35 @@ public class BornInversionService(
         _timer.Start();
 
         // Истинные значения
-        var trueValues = trueModelValues.Select(s => s.Magnitude).ToArray();
         var currentMesh = initialMesh;
 
         double currentFunctional = .0;
         double previousFunctional = double.MaxValue;
 
-        var n = currentMesh.Elements.Count;
-        var m = sensors.Count;
-        var mu = Enumerable.Repeat(baseMu, n).ToArray();
+        var fixedStiffnessMatrix = await directTaskService.GetFixedStiffnessMatrixAsync(initialMesh);
 
-        // Строим фоновую модель и решаем A0 (один раз)
-        var mesh0 = currentMesh.CloneWithUniformMu(baseMu);
-
-        var baseField = await directTaskService.CalculateDirectTaskAsync(mesh0, sensors, sources, primaryField);
-        var eps0 = baseField.Select(f => f.Magnitude).ToArray();
-
-        // Строим J на фоне один раз
-        var J = await jacobianCacheService.BuildOnceAsync(mesh0, sensors, sources, eps0, primaryField);
-        var matJ = Matrix<double>.Build.DenseOfArray(J);
-        var JT = matJ.Transpose();
-        var JTJ = JT * matJ;
-
-        // Регуляризация (Тихонов 1)
-        for (int i = 0; i < n; i++)
-            JTJ[i, i] += inversionOptions.Lambda;
-
-        // Итерации для уточнения модели
-        for (int iteration = 0; iteration < inversionOptions.MaxIterations; iteration++)
+        for (var iteration = 0; iteration < inversionOptions.MaxIterations; iteration++)
         {
-            Console.WriteLine($"\n== Adaptive Inversion Iteration {iteration + 1} ==");
+            Console.WriteLine($"\n== Born approximation inversion: iteration[{iteration + 1}] ==");
 
-            // Обновляем плотности ячеек
-            for (int j = 0; j < n; j++)
-                currentMesh.Elements[j].Mu = mu[j];
-
-            var epsField = await directTaskService.CalculateDirectTaskAsync(
+            // Расчёт прямой задачи
+            var currentModelValues = await directTaskService.CalculateFixedDirectTaskAsync(
                 currentMesh,
                 sensors,
                 sources,
-                primaryField
+                emptyValues,
+                fixedStiffnessMatrix
             );
-            var modelValues = epsField.Select(f => f.Magnitude).ToArray();
 
             // Расчёт невязки и вычисление функционала
             currentFunctional = .0;
-            for (int i = 0; i < m; i++)
+            for (var i = 0; i < currentModelValues.Count; i++)
             {
-                var r = trueValues[i] - modelValues[i];
-                var weight = 1; // TODO: заменить на применения весов
+                var dBx = currentModelValues[i].Bx - trueModelValues[i].Bx;
+                var dBy = currentModelValues[i].By - trueModelValues[i].By;
+                var dBz = currentModelValues[i].Bz - trueModelValues[i].Bz;
 
-                currentFunctional += r * r * weight * weight;
+                currentFunctional += dBx * dBx + dBy * dBy + dBz * dBz;
             }
 
             // Сохранение начального функционала
@@ -105,7 +78,7 @@ public class BornInversionService(
             }
 
             // Проверка на нулевой функционал
-            if (currentFunctional == 0)
+            if (Math.Abs(currentFunctional) < 1e-18)
             {
                 Console.WriteLine("The model has true parameters");
                 break;
@@ -113,14 +86,6 @@ public class BornInversionService(
 
             // Проверка на достижение искомого функционала
             var functionalDiv = currentFunctional / _initialFunctional;
-
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine(
-                $"Current functional: {currentFunctional:E8}\t|\tInitial functional: {_initialFunctional:E8}\n"
-                + $"(Current functional) / (Initial functional): {functionalDiv}\t|\tFunctional threshold: {inversionOptions.FunctionalThreshold}"
-            );
-            Console.ResetColor();
-
             if (functionalDiv <= inversionOptions.FunctionalThreshold)
             {
                 Console.WriteLine("The desired value of the functional has been achieved");
@@ -128,6 +93,7 @@ public class BornInversionService(
             }
 
             // Проверка на стагнацию функционала
+            var iterationStagnation = false;
             if (iteration != 0)
             {
                 var difference = previousFunctional - currentFunctional;
@@ -136,9 +102,12 @@ public class BornInversionService(
                 Console.WriteLine($"Difference between previous functional and current functional: {difference:E8}");
                 Console.ResetColor();
 
+                inversionOptions.UseTikhonovSecondOrder = true;
                 if (Math.Abs(difference) < inversionOptions.RelativeTolerance)
                 {
                     Console.WriteLine("Small relative change in functional");
+                    iterationStagnation = true;
+                    inversionOptions.UseTikhonovSecondOrder = false;
                 }
             }
 
@@ -149,18 +118,69 @@ public class BornInversionService(
                 break;
             }
 
+            // Лог по итерации
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Console.WriteLine(
+                $"Current functional: {currentFunctional:E8}\t|\tInitial functional: {_initialFunctional:E8}\n\r"
+                + $"(Current functional) / (Initial functional): {functionalDiv}\t|\tFunctional threshold: {inversionOptions.FunctionalThreshold}\n\r"
+                + $"Tikhonov first is enable: {inversionOptions.UseTikhonovFirstOrder}\tTikhonov second is enable: {inversionOptions.UseTikhonovSecondOrder}"
+            );
+            Console.ResetColor();
+
             previousFunctional = currentFunctional;
 
-            // Правая часть: eps_obs - eps0
-            var residual = Vector<double>.Build.DenseOfEnumerable(trueValues.Zip(eps0, (obs, b0) => obs - b0));
-            var JTr = JT * residual;
+            // Построение A
+            Console.WriteLine("Calculating jacobian was started");
+            var timer = Stopwatch.StartNew();
 
-            // Решение: deltaMu
-            var JTJLU = JTJ.LU();
-            var delta = JTJLU.Solve(JTr);
+            var matrixJ = bornJacobianService.BuildAsync(
+                currentMesh,
+                sensors,
+                sources,
+                new([]) // TODO: переделать вызов
+            );
 
-            for (int i = 0; i < n; i++)
-                mu[i] += delta[i];
+            timer.Stop();
+            Console.WriteLine($"Calculating jacobian was finished in time: {timer.Elapsed.TotalMinutes} minutes");
+
+            // Текущие параметры модели
+            var modelParameters = currentMesh.Elements.Select(c => c.Mu).ToArray();
+
+            // Итерация метода Гаусса–Ньютона
+            var observedValues = trueModelValues
+                                 .SelectMany(v => new[]
+                                     {
+                                         v.Bx,
+                                         v.By,
+                                         v.Bz
+                                     }
+                                 )
+                                 .ToArray();
+
+            var modelValues = currentModelValues
+                              .SelectMany(v => new[]
+                                  {
+                                      v.Bx,
+                                      v.By,
+                                      v.Bz
+                                  }
+                              )
+                              .ToArray();
+
+            var updatedMu = inversionService.Invert(
+                currentMesh,
+                modelValues,
+                observedValues,
+                matrixJ,
+                modelParameters, // текущие значения mu
+                inversionOptions,
+                iteration,
+                iterationStagnation
+            );
+
+            // Обновляем mu ячеек
+            for (int j = 0; j < currentMesh.Elements.Count; j++)
+                currentMesh.Elements[j].Mu = updatedMu[j];
 
             _functionalList.TryAdd(iteration, currentFunctional);
             Console.WriteLine($"Elements: {currentMesh.Elements.Count}");
@@ -173,13 +193,13 @@ public class BornInversionService(
         Console.WriteLine($"Initial functional: {_initialFunctional:E8}\t|\tLast functional: {currentFunctional:E8}");
         Console.ResetColor();
 
-        Console.WriteLine("Functionals:");
+        Console.WriteLine("Functional list:");
         foreach (var functional in _functionalList)
             Console.WriteLine($"{functional.Key}: {functional.Value:E8}");
 
         await ShowPlotAsync(currentMesh, sensors);
 
-        var values = await directTaskService.CalculateDirectTaskAsync(currentMesh, sensors, sources, primaryField);
+        var values = await directTaskService.CalculateDirectTaskAsync(currentMesh, sensors, sources, emptyValues);
         await ShowValuesAsync(values);
     }
 

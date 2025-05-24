@@ -1,6 +1,6 @@
 ﻿using Electromagnetic.Common.Data.Domain;
 
-namespace Inverse.SharedCore.DirectTaskService;
+namespace Inverse.SharedCore.Services.DirectTaskService;
 
 public interface IDirectTaskService
 {
@@ -23,4 +23,14 @@ public interface IDirectTaskService
     );
 
     Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(TestSession testSessionParameters);
+    
+    Task<PrecomputedStiffness> GetFixedStiffnessMatrixAsync(Mesh mesh);
+
+    Task<IReadOnlyList<FieldSample>> CalculateFixedDirectTaskAsync(
+        Mesh mesh,
+        IReadOnlyList<Sensor> sensors,
+        IReadOnlyList<CurrentSegment> sources,
+        IReadOnlyList<FieldSample> primaryField,
+        PrecomputedStiffness stiffness
+    );
 }

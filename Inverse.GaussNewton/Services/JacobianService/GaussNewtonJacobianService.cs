@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using Electromagnetic.Common.Data.Domain;
-using Inverse.SharedCore.DirectTaskService;
+using Inverse.SharedCore.Services.DirectTaskService;
 
 namespace Inverse.GaussNewton.Services.JacobianService;
 

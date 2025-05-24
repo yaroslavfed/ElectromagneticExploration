@@ -1,7 +1,7 @@
 ﻿using Electromagnetic.Common.Data.Domain;
 using Electromagnetic.Common.Models;
 
-namespace Inverse.SharedCore.MeshRefinerService;
+namespace Inverse.SharedCore.Services.MeshRefinerService;
 
 public interface IMeshRefinerService
 {

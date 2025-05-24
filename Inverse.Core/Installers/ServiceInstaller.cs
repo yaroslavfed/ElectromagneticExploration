@@ -1,7 +1,8 @@
 using Autofac;
 using Direct.Core.Installers;
-using Inverse.SharedCore.DirectTaskService;
-using Inverse.SharedCore.MeshRefinerService;
+using Inverse.SharedCore.Services.DirectTaskService;
+using Inverse.SharedCore.Services.InverseService;
+using Inverse.SharedCore.Services.MeshRefinerService;
 
 namespace Inverse.Core.Installers;
 
@@ -11,6 +12,7 @@ public static class ServiceInstaller
     {
         builder.RegisterType<DirectTaskService>().As<IDirectTaskService>();
         builder.RegisterType<MeshRefinerService>().As<IMeshRefinerService>();
+        builder.RegisterType<InversionService>().As<IInversionService>();
 
         ServicesInstaller.RegisterServices(builder);
 

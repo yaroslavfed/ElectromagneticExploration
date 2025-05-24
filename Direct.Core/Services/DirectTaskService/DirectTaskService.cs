@@ -6,6 +6,7 @@ using Direct.Core.Services.SourceProvider;
 using Direct.Core.Services.TestSessionService;
 using Electromagnetic.Common.Data.Domain;
 using MathNet.Numerics;
+using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
 using Vector = Electromagnetic.Common.Data.Domain.Vector;
 
@@ -166,6 +167,56 @@ public class DirectTaskService : IDirectTaskService
         return await CalculateDirectTaskAsync(testSession.Mesh, sensors, sources, primaryField);
     }
 
+    public async Task<IReadOnlyList<FieldSample>> CalculateFixedDirectTaskAsync(
+        Mesh mesh,
+        IReadOnlyList<Sensor> sensors,
+        IReadOnlyList<CurrentSegment> sources,
+        IReadOnlyList<FieldSample> primaryField,
+        PrecomputedStiffness stiffness
+    )
+    {
+        try
+        {
+            var solution = await CalculateElectroMagneticFEMWithFixedSystem(stiffness, mesh, sources);
+
+            var samples = new List<FieldSample>();
+
+            for (int i = 0; i < sensors.Count; i++)
+            {
+                var sensor = sensors[i];
+                var element = FindElementContaining(sensor.Position, mesh);
+                var B = ComputeMagneticFieldAt(sensor.Position, element, solution);
+
+                var Bprim = new Vector3D { X = primaryField[i].Bx, Y = primaryField[i].By, Z = primaryField[i].Bz };
+                var Bsec = B - Bprim;
+
+                samples.Add(
+                    new()
+                    {
+                        X = sensor.Position.X,
+                        Y = sensor.Position.Y,
+                        Z = sensor.Position.Z,
+                        Bx = Bsec.X,
+                        By = Bsec.Y,
+                        Bz = Bsec.Z
+                    }
+                );
+            }
+
+            return samples;
+        } catch (Exception exception)
+        {
+            throw new(exception.ToString());
+        }
+    }
+
+    public async Task<PrecomputedStiffness> GetFixedStiffnessMatrixAsync(Mesh mesh)
+    {
+        var stiffness = await _assemblyService.AssembleStateStiffnessMatrixAsync(mesh);
+
+        return new() { GlobalMatrix = stiffness };
+    }
+
     private async Task<Vector> CalculateElectroMagneticFEM(Mesh mesh, IReadOnlyList<CurrentSegment> sources)
     {
         // Построение матрицы жесткости и вектора правой части
@@ -177,8 +228,37 @@ public class DirectTaskService : IDirectTaskService
         // Построение СЛАУ
         var A = globalMatrix.ToMathNet();
         var b = globalRhs.ToMathNet();
+        var q = SolveSLAE(A, b);
 
-        // Решение СЛАУ
+        var solution = Vector.FromMathNet(q);
+
+        return solution;
+    }
+
+    private async Task<Vector> CalculateElectroMagneticFEMWithFixedSystem(
+        PrecomputedStiffness stiffness,
+        Mesh mesh,
+        IReadOnlyList<CurrentSegment> sources
+    )
+    {
+        // Пересчитываем только правую часть
+        var (_, rhs) = await _assemblyService.AssembleGlobalSystemAsync(mesh, sources);
+
+        // Применение краевых условий
+        await _boundaryConditionService.ApplyBoundaryConditionsAsync(stiffness.GlobalMatrix, rhs, mesh);
+
+        // Построение СЛАУ
+        var A = stiffness.GlobalMathNetMatrix;
+        var b = rhs.ToMathNet();
+        var q = SolveSLAE(A, b);
+
+        var solution = Vector.FromMathNet(q);
+
+        return solution;
+    }
+
+    private Vector<double> SolveSLAE(Matrix<double> A, Vector<double> b)
+    {
         var At = A.Transpose();
         var lambda = 1e-2;
         var AtA = At * A;
@@ -187,9 +267,7 @@ public class DirectTaskService : IDirectTaskService
         var rhs = At * b;
         var q = regularized.Solve(rhs);
 
-        var solution = Vector.FromMathNet(q);
-
-        return solution;
+        return q;
     }
 
     private FiniteElement FindElementContaining(Point3D point, Mesh mesh)

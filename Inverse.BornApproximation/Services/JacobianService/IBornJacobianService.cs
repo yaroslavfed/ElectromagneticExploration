@@ -2,13 +2,12 @@
 
 namespace Inverse.BornApproximation.Services.JacobianService;
 
-public interface IBornJacobianCacheService
+public interface IBornJacobianService
 {
-    Task<double[,]> BuildOnceAsync(
+    double[,] BuildAsync(
         Mesh mesh,
         IReadOnlyList<Sensor> sensors,
         IReadOnlyList<CurrentSegment> sources,
-        double[] currentValues,
-        IReadOnlyList<FieldSample> primaryField
+        Vector solutionU0
     );
 }

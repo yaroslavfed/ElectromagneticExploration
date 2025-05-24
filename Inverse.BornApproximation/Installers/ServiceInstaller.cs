@@ -9,6 +9,6 @@ public static class ServiceInstaller
     public static void RegisterBornServices(this ContainerBuilder builder)
     {
         builder.RegisterType<BornInversionService>().As<IBornInversionService>();
-        builder.RegisterType<BornJacobianCacheService>().As<IBornJacobianCacheService>();
+        builder.RegisterType<BornJacobianService>().As<IBornJacobianService>();
     }
 }

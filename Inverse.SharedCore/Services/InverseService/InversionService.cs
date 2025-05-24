@@ -4,7 +4,7 @@ using MathNet.Numerics.LinearAlgebra;
 
 // ReSharper disable InconsistentNaming
 
-namespace Inverse.GaussNewton.Services.InverseService;
+namespace Inverse.SharedCore.Services.InverseService;
 
 public class InversionService : IInversionService
 {
@@ -20,7 +20,6 @@ public class InversionService : IInversionService
         bool iterationStagnation
     )
     {
-        int m3 = observedValues.Length; // = 3 * m
         int n = parameters.Length;
 
         var residual = Vector<double>.Build.DenseOfEnumerable(
@@ -40,7 +39,7 @@ public class InversionService : IInversionService
         if (options.AutoAdjustRegularization)
         {
             effectiveLambda = iterationStagnation
-                ? Math.Max(baseLambda / Math.Pow(options.LambdaDecay, iterationNumber), options.MaxLambda)
+                ? Math.Min(baseLambda / Math.Pow(options.LambdaDecay, iterationNumber), options.MaxLambda)
                 : Math.Max(baseLambda * Math.Pow(options.LambdaDecay, iterationNumber), options.MinLambda);
         }
         else

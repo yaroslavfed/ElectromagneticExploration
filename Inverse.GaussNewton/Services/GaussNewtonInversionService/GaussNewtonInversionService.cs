@@ -4,9 +4,9 @@ using System.Text.Json;
 using Direct.Core.Services.PlotService;
 using Electromagnetic.Common.Data.Domain;
 using Electromagnetic.Common.Models;
-using Inverse.GaussNewton.Services.InverseService;
 using Inverse.GaussNewton.Services.JacobianService;
-using Inverse.SharedCore.DirectTaskService;
+using Inverse.SharedCore.Services.DirectTaskService;
+using Inverse.SharedCore.Services.InverseService;
 
 // ReSharper disable InconsistentNaming
 
@@ -39,7 +39,6 @@ public class GaussNewtonInversionService(
         _timer.Start();
 
         // Истинные значения
-        // var trueValues = trueModelValues.Select(s => s.Magnitude).ToArray();
         var currentMesh = initialMesh;
 
         double currentFunctional = .0;
@@ -56,17 +55,10 @@ public class GaussNewtonInversionService(
                 sources,
                 emptyValues
             );
-            // var modelValues = anomalySensors.Select(s => s.Magnitude).ToArray();
 
             // Расчёт невязки и вычисление функционала
             currentFunctional = .0;
-            // for (var i = 0; i < modelValues.Length; i++)
-            // {
-            //     var residual = trueValues[i] - modelValues[i];
-            //     var weight = 1; // TODO: заменить на применения весов
-            //
-            //     currentFunctional += residual * residual * weight * weight;
-            // }
+
             for (var i = 0; i < currentModelValues.Count; i++)
             {
                 var dBx = currentModelValues[i].Bx - trueModelValues[i].Bx;
@@ -81,6 +73,8 @@ public class GaussNewtonInversionService(
             {
                 _initialFunctional = currentFunctional;
                 Console.WriteLine($"Initial functional was set to: {_initialFunctional:E8}");
+
+                _functionalList.TryAdd(-1, _initialFunctional);
             }
 
             // Проверка на нулевой функционал
@@ -202,14 +196,25 @@ public class GaussNewtonInversionService(
         Console.WriteLine($"Initial functional: {_initialFunctional:E8}\t|\tLast functional: {currentFunctional:E8}");
         Console.ResetColor();
 
-        Console.WriteLine("Functional list:");
-        foreach (var functional in _functionalList)
-            Console.WriteLine($"{functional.Key}: {functional.Value:E8}");
+        await WriteFunctionalToFile(currentFunctional);
 
         await ShowPlotAsync(currentMesh, sensors);
-
         var values = await directTaskService.CalculateDirectTaskAsync(currentMesh, sensors, sources, emptyValues);
         await ShowValuesAsync(values);
+    }
+
+    private async Task WriteFunctionalToFile(double lastFunctional)
+    {
+        await using var writer = new StreamWriter($"GaussNewton_test_3_{DateTime.Now.ToShortDateString()}.txt", false);
+
+        await writer.WriteLineAsync($"Elapsed time: {_timer.Elapsed}");
+        await writer.WriteLineAsync(
+            $"Initial functional: {_initialFunctional:E8}\t|\tLast functional: {lastFunctional:E8}"
+        );
+
+        await writer.WriteLineAsync("\nFunctional list:");
+        foreach (var functional in _functionalList)
+            await writer.WriteLineAsync($"{functional.Key}: {functional.Value:E8}");
     }
 
     private async Task ShowPlotAsync(Mesh mesh, IReadOnlyList<Sensor> sensors)

@@ -42,9 +42,9 @@ public record Vector3D
 
     public static Vector3D operator *(double scalar, Vector3D v) => v * scalar;
 
-    public Vector3D Multiply(double scalar)
+    public static Vector3D operator /(Vector3D v, double scalar)
     {
-        return new() { X = X * scalar, Y = Y * scalar, Z = Z * scalar };
+        return new(v.X / scalar, v.Y / scalar, v.Z / scalar);
     }
 
     public override string ToString() => $"({X:0.###}, {Y:0.###}, {Z:0.###})";

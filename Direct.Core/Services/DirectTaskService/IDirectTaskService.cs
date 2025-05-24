@@ -52,4 +52,14 @@ public interface IDirectTaskService
         IReadOnlyList<FieldSample> primaryField,
         bool showPlot = true
     );
+
+    Task<PrecomputedStiffness> GetFixedStiffnessMatrixAsync(Mesh mesh);
+
+    Task<IReadOnlyList<FieldSample>> CalculateFixedDirectTaskAsync(
+        Mesh mesh,
+        IReadOnlyList<Sensor> sensors,
+        IReadOnlyList<CurrentSegment> sources,
+        IReadOnlyList<FieldSample> primaryField,
+        PrecomputedStiffness stiffness
+    );
 }

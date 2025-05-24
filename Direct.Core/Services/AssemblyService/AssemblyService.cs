@@ -18,25 +18,26 @@ public class AssemblyService : IAssemblyService
         IReadOnlyList<CurrentSegment> sources
     )
     {
-        // 1. Кэшируем уникальные глобальные рёбра
+        // Кэшируем уникальные глобальные рёбра
         var globalEdges = mesh
                           .Elements
                           .SelectMany(e => e.Edges)
                           .GroupBy(e => e.EdgeIndex)
                           .Select(g => g.First())
                           .OrderBy(e => e.EdgeIndex)
-                          .ToList();
+                          .ToArray();
 
-        int dofCount = globalEdges.Count;
+        var dofCount = globalEdges.Length;
 
         var globalMatrix = new Matrix(dofCount, dofCount);
         var globalRhs = new Vector(dofCount);
 
-        // 2. Параллелим сборку локальных матриц и векторов
+        // Параллелим сборку локальных матриц и векторов
         var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
 
         var locks = new object[dofCount];
-        for (int i = 0; i < dofCount; i++) locks[i] = new object();
+        for (var i = 0; i < dofCount; i++)
+            locks[i] = new();
 
         await Task.Run(() => Parallel.ForEach(
                            mesh.Elements,
@@ -70,5 +71,12 @@ public class AssemblyService : IAssemblyService
         );
 
         return (globalMatrix, globalRhs);
+    }
+
+    public async Task<Matrix> AssembleStateStiffnessMatrixAsync(Mesh mesh)
+    {
+        var fakeSources = Array.Empty<CurrentSegment>();
+        var (matrix, _) = await AssembleGlobalSystemAsync(mesh, fakeSources);
+        return matrix;
     }
 }
