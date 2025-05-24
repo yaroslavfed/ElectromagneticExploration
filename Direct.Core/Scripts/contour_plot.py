@@ -17,62 +17,88 @@ b_magnitude = np.array([p["Magnitude"] for p in data])
 
 # Триангуляция и интерполяция
 triang = tri.Triangulation(x, y)
-interp_mag = tri.LinearTriInterpolator(triang, b_magnitude)
-interp_bx = tri.LinearTriInterpolator(triang, bx)
-interp_by = tri.LinearTriInterpolator(triang, by)
+interpolators = {
+    'mag': tri.LinearTriInterpolator(triang, b_magnitude),
+    'bx': tri.LinearTriInterpolator(triang, bx),
+    'by': tri.LinearTriInterpolator(triang, by)
+}
 
 # Сетка
-xi = np.linspace(min(x), max(x), 100)
-yi = np.linspace(min(y), max(y), 100)
+xi = np.linspace(x.min(), x.max(), 100)
+yi = np.linspace(y.min(), y.max(), 100)
 Xi, Yi = np.meshgrid(xi, yi)
 
-Zi_mag = interp_mag(Xi, Yi)
-Zi_bx = interp_bx(Xi, Yi)
-Zi_by = interp_by(Xi, Yi)
+# Интерполяция данных
+Zi = {key: interp(Xi, Yi) for key, interp in interpolators.items()}
 
 # Визуализация
-fig, axs = plt.subplots(2, 2, figsize=(14, 8))
-fig.suptitle("Электромагнитное поле (все компоненты + модуль)")
+fig, axs = plt.subplots(2, 2, figsize=(14, 10), dpi=100)
+fig.suptitle("Анализ магнитного поля", fontsize=14, y=1.02)
 
-# |B|
-cf0 = axs[0, 0].contourf(Xi, Yi, Zi_mag, levels=20, cmap="viridis")
-plt.colorbar(cf0, ax=axs[0, 0], label="|B|")
-axs[0, 0].set_title("|B| — Модуль магнитного поля")
-axs[0, 0].set_xlabel("X")
-axs[0, 0].set_ylabel("Y")
+# Общие настройки для всех графиков
+plot_config = {
+    'mag': {'title': "Модуль поля (|B|)", 'cmap': 'viridis'},
+    'bx': {'title': "X-компонента (Bx)", 'cmap': 'coolwarm'},
+    'by': {'title': "Y-компонента (By)", 'cmap': 'coolwarm'}
+}
 
-# Bx
-cf1 = axs[0, 1].contourf(Xi, Yi, Zi_bx, levels=20, cmap="coolwarm")
-plt.colorbar(cf1, ax=axs[0, 1], label="Bx")
-axs[0, 1].set_title("Bx — компонента по X")
-axs[0, 1].set_xlabel("X")
-axs[0, 1].set_ylabel("Y")
+# Графики плотности
+for idx, (key, ax) in enumerate(zip(plot_config, axs.flatten()[:3])):
+    cf = ax.contourf(Xi, Yi, Zi[key], levels=25,
+                     cmap=plot_config[key]['cmap'], alpha=1)
+    fig.colorbar(cf, ax=ax, label='', shrink=1)
+    ax.set_title(plot_config[key]['title'], fontsize=10)
+    ax.set(xlabel='X [м]', ylabel='Y [м]', aspect='equal')
 
-# By
-cf2 = axs[1, 0].contourf(Xi, Yi, Zi_by, levels=20, cmap="coolwarm")
-plt.colorbar(cf2, ax=axs[1, 0], label="By")
-axs[1, 0].set_title("By — компонента по Y")
-axs[1, 0].set_xlabel("X")
-axs[1, 0].set_ylabel("Y")
+# Настройки только для векторного поля
+ax = axs[1, 1]
+step = 6  # Уменьшаем шаг для большего количества стрелок
 
-# Векторное поле (направление + длина по модулю)
-step = 8
-U = Zi_bx[::step, ::step]
-V = Zi_by[::step, ::step]
-Xq = Xi[::step, ::step]
-Yq = Yi[::step, ::step]
+# Выборка данных
+skip = (slice(None, None, step), slice(None, None, step))
+U = Zi['bx'][skip]
+V = Zi['by'][skip]
+X_quiv = Xi[skip]
+Y_quiv = Yi[skip]
+M = np.hypot(U, V)
 
-# Нормировка (по длине стрелок)
-magnitude = np.sqrt(U**2 + V**2)
-U_scaled = U / np.max(magnitude)
-V_scaled = V / np.max(magnitude)
+# Явное задание размеров (важно!)
+min_arrow_size = 0.2  # Минимальный размер стрелки в метрах
+max_arrow_size = 1   # Максимальный размер стрелки
+arrow_scale = max_arrow_size / np.max(M)  # Масштабирующий коэффициент
 
-axs[1, 1].quiver(Xq, Yq, U_scaled, V_scaled, magnitude, angles="xy", scale=0.2, cmap="plasma")
-axs[1, 1].set_title("Векторное поле (Bx, By)")
-axs[1, 1].set_xlabel("X")
-axs[1, 1].set_ylabel("Y")
-axs[1, 1].set_xlim(x.min(), x.max())
-axs[1, 1].set_ylim(y.min(), y.max())
+# Нормализация и масштабирование
+U_norm = U * arrow_scale
+V_norm = V * arrow_scale
+
+# Рисуем стрелки с фиксированным размером
+quiv = ax.quiver(
+    X_quiv, Y_quiv,
+    U_norm, V_norm, M,
+    angles='xy',
+    scale_units='xy',
+    scale=1.0,          # Отключаем авто-масштабирование
+    width=0.008,        # Толщина в 2 раза больше
+    headwidth=6,        # Гигантские головки
+    headlength=7,
+    headaxislength=5,
+    cmap='turbo',         # Яркая цветовая схема
+    edgecolor='black',  # Четкая обводка
+    linewidth=0.5,
+    alpha=0.95,
+    zorder=10           # Выводим поверх других элементов
+)
+
+# Настройка цветовой шкалы
+cbar = fig.colorbar(quiv, ax=ax, label='|B|')
+cbar.ax.tick_params(labelsize=8)
+
+# Фиксируем границы
+ax.set_xlim(x.min(), x.max())
+ax.set_ylim(y.min(), y.max())
+ax.set_aspect('equal')
+ax.set_title("Векторное поле: Bx и By")
 
 plt.tight_layout()
+plt.subplots_adjust(hspace=0.3, wspace=0.25)
 plt.show()

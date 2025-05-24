@@ -2,21 +2,21 @@
   "meshParameters": {
     "xCenterCoordinate": 0,
     "yCenterCoordinate": 0,
-    "zCenterCoordinate": -10,
-    "xStepToBounds": 10,
-    "yStepToBounds": 10,
-    "zStepToBounds": 10
+    "zCenterCoordinate": -7.5,
+    "xStepToBounds": 14,
+    "yStepToBounds": 14,
+    "zStepToBounds": 7.5
   },
   "splittingParameters": {
-    "xSplittingCoefficient": 12,
-    "ySplittingCoefficient": 12,
-    "zSplittingCoefficient": 12,
+    "xSplittingCoefficient": 7,
+    "ySplittingCoefficient": 7,
+    "zSplittingCoefficient": 5,
     "xMultiplyCoefficient": 1,
     "yMultiplyCoefficient": 1,
     "zMultiplyCoefficient": 1
   },
   "additionParameters": {
-    "muCoefficient": 1.2566e-6,
+    "muCoefficient": 2,
     "gammaCoefficient": 1,
     "boundaryCondition": 0
   },
@@ -24,32 +24,17 @@
     {
       "positioning": {
         "centerCoordinate": {
+          "x": 0,
+          "y": 0,
+          "z": -9
+        },
+        "boundsDistance": {
           "x": 5,
-          "y": -5,
-          "z": -7
-        },
-        "boundsDistance": {
-          "x": 3,
-          "y": 2,
-          "z": 5
-        }
-      },
-      "mu": 1.2566e-3
-    },
-    {
-      "positioning": {
-        "centerCoordinate": {
-          "x": -7,
           "y": 5,
-          "z": -6
-        },
-        "boundsDistance": {
-          "x": 3,
-          "y": 6,
-          "z": 4
+          "z": 3
         }
       },
-      "mu": 1.2566e-3
+      "mu": 50
     }
   ],
   "currentSource": {
@@ -62,7 +47,7 @@
     "width": 1,
     "height": 1,
     "plane": "XZ",
-    "amperage": 50,
+    "amperage": 100,
     "segmentsPerSide": 3
   },
   "sensors": [

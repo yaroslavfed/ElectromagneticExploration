@@ -99,12 +99,12 @@ internal class Startup(
     private Task InitializeSensors(TestSession testSessionParameters)
     {
         testSessionParameters.Sensors = SensorGenerator.GenerateXYPlaneSensors(
-            xMin: -10,
-            xMax: 10,
-            xCount: 50,
-            yMin: -10,
-            yMax: 10,
-            yCount: 50,
+            xMin: -12,
+            xMax: 12,
+            xCount: 30,
+            yMin: -12,
+            yMax: 12,
+            yCount: 30,
             zLevel: 0,
             component: ESensorComponent.Bz
         );

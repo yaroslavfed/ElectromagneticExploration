@@ -380,9 +380,9 @@ if __name__ == "__main__":
         plot_finite_element_mesh(
             elements=elements,
             sensors=sensors,
-            x_slice=-7,
+            x_slice=0,
             y_slice=0,
-            z_slice=-10
+            z_slice=-9
         )
     except Exception as e:
         print(f"\nОшибка: {str(e)}")
