@@ -24,7 +24,7 @@ public class ProblemService : IProblemService
 
         var integrationPoints = IntegrationHelper.GetIntegrationPoints(element);
         int pointCount = integrationPoints.Count;
-        
+
         // Предвычисление всех роторов
         var curlCache = new Vector3D[edgeCount, pointCount];
         for (int i = 0; i < edgeCount; i++)
@@ -75,7 +75,6 @@ public class ProblemService : IProblemService
         return Task.FromResult(localVector);
     }
 
-    /// <inheritdoc />
     public async Task<(Node firstNode, Node secondNode, EDirections direction)> ResolveLocalNodes(
         Edge edge,
         TestSession<Mesh> testSession

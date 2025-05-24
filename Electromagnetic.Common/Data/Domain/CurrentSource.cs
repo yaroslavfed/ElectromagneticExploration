@@ -1,24 +1,27 @@
-﻿namespace Electromagnetic.Common.Data.Domain;
+﻿using Electromagnetic.Common.Enums;
+
+namespace Electromagnetic.Common.Data.Domain;
 
 public record CurrentSource
 {
-    /// <summary>
-    /// Начало отрезка
-    /// </summary>
-    public required Point3D Start { get; set; }
+    public ESourceType Type { get; set; }
 
-    /// <summary>
-    /// Конец отрезка
-    /// </summary>
-    public required Point3D End { get; set; }
+    // Для линейного источника
+    public Point3D? Start { get; set; }
 
-    /// <summary>
-    /// Величина тока в амперах
-    /// </summary>
+    public Point3D? End { get; set; }
+
+    
+    // Для петли
+    public Point3D? Center { get; set; }
+
+    public double Width { get; set; } = 1.0;
+
+    public double Height { get; set; } = 1.0;
+
+    public ELoopPlane Plane { get; set; } = ELoopPlane.XY;
+
     public double Amperage { get; set; }
 
-    /// <summary>
-    /// Число разбиений на сегменты
-    /// </summary>
-    public int Segments { get; set; } = 10;
+    public int SegmentsPerSide { get; set; }
 }

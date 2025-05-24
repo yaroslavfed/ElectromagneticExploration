@@ -8,11 +8,11 @@ public record FieldSample
 
     public double Z { get; set; }
 
-    public double Bx { get; set; }
+    public double Bx { get; init; }
 
-    public double By { get; set; }
+    public double By { get; init; }
 
-    public double Bz { get; set; }
+    public double Bz { get; init; }
 
-    public double Magnitude { get; set; }
+    public double Magnitude => Math.Sqrt(Bx * Bx + By * By + Bz * Bz);
 }

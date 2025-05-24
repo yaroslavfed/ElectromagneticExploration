@@ -168,25 +168,10 @@ def plot_finite_element_mesh(
             marker='o',
             s=50,
             edgecolors='black',
-            linewidths=1,
+            linewidths=0.3,
             label='Sensors',
-            alpha=0.8
+            alpha=0.3
         )
-
-        # Добавляем подписи для сенсоров
-        for i, sensor in enumerate(sensors):
-            ax3d.text(
-                sensor.Position.X,
-                sensor.Position.Y,
-                sensor.Position.Z,
-                f'S{i + 1}',
-                color='darkred',
-                fontsize=8,
-                ha='center',
-                va='bottom'
-            )
-
-        ax3d.legend(loc='upper right')
 
     for element in elements:
         color = cmap(norm(element.Mu))
@@ -395,9 +380,9 @@ if __name__ == "__main__":
         plot_finite_element_mesh(
             elements=elements,
             sensors=sensors,
-            x_slice=7,
+            x_slice=-7,
             y_slice=0,
-            z_slice=-15
+            z_slice=-10
         )
     except Exception as e:
         print(f"\nОшибка: {str(e)}")

@@ -8,9 +8,9 @@
     "zStepToBounds": 10
   },
   "splittingParameters": {
-    "xSplittingCoefficient": 10,
-    "ySplittingCoefficient": 10,
-    "zSplittingCoefficient": 10,
+    "xSplittingCoefficient": 12,
+    "ySplittingCoefficient": 12,
+    "zSplittingCoefficient": 12,
     "xMultiplyCoefficient": 1,
     "yMultiplyCoefficient": 1,
     "zMultiplyCoefficient": 1
@@ -24,47 +24,46 @@
     {
       "positioning": {
         "centerCoordinate": {
-          "x": -7,
-          "y": 0,
-          "z": -15
+          "x": 5,
+          "y": -5,
+          "z": -7
         },
         "boundsDistance": {
-          "x": 5,
-          "y": 5,
+          "x": 3,
+          "y": 2,
           "z": 5
         }
       },
-      "mu": 1.38226e-6
+      "mu": 1.2566e-3
     },
     {
       "positioning": {
         "centerCoordinate": {
-          "x": 7,
-          "y": 0,
-          "z": -19
+          "x": -7,
+          "y": 5,
+          "z": -6
         },
         "boundsDistance": {
           "x": 3,
-          "y": 5,
-          "z": 10
+          "y": 6,
+          "z": 4
         }
       },
-      "mu": 1.38226e-6
+      "mu": 1.2566e-3
     }
   ],
   "currentSource": {
-    "start": {
-      "x": -5,
-      "y": -5,
-      "z": -5
+    "type": "Loop",
+    "center": {
+      "x": 0,
+      "y": 0,
+      "z": 0
     },
-    "end": {
-      "x": 5,
-      "y": 5,
-      "z": -5
-    },
-    "amperage": 5,
-    "segments": 10
+    "width": 1,
+    "height": 1,
+    "plane": "XZ",
+    "amperage": 50,
+    "segmentsPerSide": 3
   },
   "sensors": [
   ]

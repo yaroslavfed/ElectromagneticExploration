@@ -43,6 +43,7 @@ public class DirectTaskService : IDirectTaskService
         Control.UseMultiThreading();
     }
 
+    ///<inheritdoc />>
     public async Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(
         Mesh mesh,
         IReadOnlyList<Sensor> sensors,
@@ -67,8 +68,7 @@ public class DirectTaskService : IDirectTaskService
                         Z = sensor.Position.Z,
                         Bx = B.X,
                         By = B.Y,
-                        Bz = B.Z,
-                        Magnitude = B.Norm()
+                        Bz = B.Z
                     }
                 );
             }
@@ -80,6 +80,7 @@ public class DirectTaskService : IDirectTaskService
         }
     }
 
+    ///<inheritdoc />>
     public async Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(
         Mesh mesh,
         IReadOnlyList<Sensor> sensors,
@@ -91,7 +92,6 @@ public class DirectTaskService : IDirectTaskService
         {
             var solution = await CalculateElectroMagneticFEM(mesh, sources);
 
-            // Вычисляем B и вычитаем B^prim
             var samples = new List<FieldSample>();
 
             for (int i = 0; i < sensors.Count; i++)
@@ -101,7 +101,6 @@ public class DirectTaskService : IDirectTaskService
                 var B = ComputeMagneticFieldAt(sensor.Position, element, solution);
 
                 var Bprim = new Vector3D { X = primaryField[i].Bx, Y = primaryField[i].By, Z = primaryField[i].Bz };
-
                 var Bsec = B - Bprim;
 
                 samples.Add(
@@ -112,8 +111,7 @@ public class DirectTaskService : IDirectTaskService
                         Z = sensor.Position.Z,
                         Bx = Bsec.X,
                         By = Bsec.Y,
-                        Bz = Bsec.Z,
-                        Magnitude = Bsec.Norm()
+                        Bz = Bsec.Z
                     }
                 );
             }
@@ -125,6 +123,7 @@ public class DirectTaskService : IDirectTaskService
         }
     }
 
+    ///<inheritdoc />>
     public async Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(
         TestSession testSessionParameters,
         bool showPlot = true
@@ -145,6 +144,7 @@ public class DirectTaskService : IDirectTaskService
         return await CalculateDirectTaskAsync(testSession.Mesh, sensors, sources);
     }
 
+    ///<inheritdoc />>
     public async Task<IReadOnlyList<FieldSample>> CalculateDirectTaskAsync(
         TestSession testSessionParameters,
         IReadOnlyList<FieldSample> primaryField,
@@ -196,24 +196,8 @@ public class DirectTaskService : IDirectTaskService
     {
         foreach (var element in mesh.Elements)
         {
-            var nodes = element.Edges.SelectMany(e => e.Nodes).DistinctBy(n => n.NodeIndex).ToList();
-
-            var minX = nodes.Min(n => n.Coordinate.X);
-            var maxX = nodes.Max(n => n.Coordinate.X);
-            var minY = nodes.Min(n => n.Coordinate.Y);
-            var maxY = nodes.Max(n => n.Coordinate.Y);
-            var minZ = nodes.Min(n => n.Coordinate.Z);
-            var maxZ = nodes.Max(n => n.Coordinate.Z);
-
-            if (point.X >= minX
-                && point.X <= maxX
-                && point.Y >= minY
-                && point.Y <= maxY
-                && point.Z >= minZ
-                && point.Z <= maxZ)
-            {
+            if (element.Contains(point, epsilon: 1e-8))
                 return element;
-            }
         }
 
         throw new("Sensor is not inside any element.");

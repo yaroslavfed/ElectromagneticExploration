@@ -8,9 +8,9 @@
     "zStepToBounds": 10
   },
   "splittingParameters": {
-    "xSplittingCoefficient": 10,
-    "ySplittingCoefficient": 10,
-    "zSplittingCoefficient": 10,
+    "xSplittingCoefficient": 9,
+    "ySplittingCoefficient": 9,
+    "zSplittingCoefficient": 8,
     "xMultiplyCoefficient": 1,
     "yMultiplyCoefficient": 1,
     "zMultiplyCoefficient": 1
@@ -23,18 +23,17 @@
   "strataList": [
   ],
   "currentSource": {
-    "start": {
-      "x": -5,
-      "y": -5,
-      "z": -5
+    "type": "Loop",
+    "center": {
+      "x": 0,
+      "y": 0,
+      "z": -1
     },
-    "end": {
-      "x": 5,
-      "y": 5,
-      "z": -5
-    },
+    "width": 1,
+    "height": 1,
+    "plane": "XZ",
     "amperage": 5,
-    "segments": 10
+    "segmentsPerSide": 5
   },
   "sensors": [
   ]
