@@ -5,10 +5,12 @@ namespace Inverse.GaussNewton.Services.JacobianService;
 public interface IGaussNewtonJacobianService
 {
     Task<double[,]> BuildAsync(
+        int iteration,
+        int maxIterations,
         Mesh mesh,
         IReadOnlyList<Sensor> sensors,
         IReadOnlyList<CurrentSegment> sources,
-        double[] currentValues,
+        IReadOnlyList<FieldSample> currentModelValues,
         IReadOnlyList<FieldSample> primaryField
     );
 }

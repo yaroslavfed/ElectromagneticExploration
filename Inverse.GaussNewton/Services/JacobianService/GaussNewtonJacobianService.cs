@@ -14,10 +14,12 @@ public class GaussNewtonJacobianService(
     private readonly ConcurrentBag<int> _calculationProgress = [];
 
     public async Task<double[,]> BuildAsync(
+        int iteration,
+        int maxIterations,
         Mesh mesh,
         IReadOnlyList<Sensor> sensors,
         IReadOnlyList<CurrentSegment> sources,
-        double[] currentValues, // Значения |B| на текущей итерации
+        IReadOnlyList<FieldSample> currentModelValues,
         IReadOnlyList<FieldSample> primaryField
     )
     {
@@ -25,7 +27,7 @@ public class GaussNewtonJacobianService(
 
         var m = sensors.Count;
         var n = mesh.Elements.Count;
-        var jacobian = new double[m, n];
+        var jacobian = new double[3 * m, n];
 
         var tasks = new List<Task>();
         var semaphore = new SemaphoreSlim(Environment.ProcessorCount);
@@ -39,21 +41,23 @@ public class GaussNewtonJacobianService(
                 {
                     try
                     {
-                        var perturbedMesh = CloneMeshWithPerturbedMu(mesh, localJ);
+                        var perturbedMesh = CloneMeshWithPerturbedMu(mesh, localJ, iteration, maxIterations);
                         var perturbedField = await directTaskService.CalculateDirectTaskAsync(
                             perturbedMesh,
                             sensors,
                             sources,
                             primaryField
                         );
-                        var perturbedValues = perturbedField.Select(s => s.Magnitude).ToArray();
+                        // var perturbedValues = perturbedField.Select(s => s.Magnitude).ToArray();
 
                         var originalMu = mesh.Elements[localJ].Mu;
-                        var delta = ComputeDeltaMu(originalMu);
+                        var delta = ComputeDeltaMu(originalMu, iteration, maxIterations);
 
                         for (var i = 0; i < m; i++)
                         {
-                            jacobian[i, localJ] = (perturbedValues[i] - currentValues[i]) / delta;
+                            jacobian[3 * i + 0, localJ] = (perturbedField[i].Bx - currentModelValues[i].Bx) / delta;
+                            jacobian[3 * i + 1, localJ] = (perturbedField[i].By - currentModelValues[i].By) / delta;
+                            jacobian[3 * i + 2, localJ] = (perturbedField[i].Bz - currentModelValues[i].Bz) / delta;
                         }
 
                         _calculationProgress.Add(localJ);
@@ -73,43 +77,37 @@ public class GaussNewtonJacobianService(
         return jacobian;
     }
 
-    private static Mesh CloneMeshWithPerturbedMu(Mesh originalMesh, int indexToPerturb)
+    private static Mesh CloneMeshWithPerturbedMu(
+        Mesh originalMesh,
+        int indexToPerturb,
+        int iteration,
+        int maxIterations
+    )
     {
-        var clonedElements = new List<FiniteElement>(originalMesh.Elements.Count);
+        var elements = originalMesh
+                       .Elements
+                       .Select((e, i) => new FiniteElement
+                           {
+                               Edges = e.Edges,
+                               Mu = i == indexToPerturb
+                                   ? e.Mu + ComputeDeltaMu(e.Mu, iteration, maxIterations)
+                                   : e.Mu
+                           }
+                       )
+                       .ToList();
 
-        foreach (var originalElement in originalMesh.Elements)
-        {
-            var clonedEdges = originalElement
-                              .Edges
-                              .Select(edge => new Edge
-                                  {
-                                      EdgeIndex = edge.EdgeIndex,
-                                      Nodes = edge
-                                              .Nodes
-                                              .Select(node => new Node
-                                                  {
-                                                      NodeIndex = node.NodeIndex,
-                                                      Coordinate = new Point3D(
-                                                          node.Coordinate.X,
-                                                          node.Coordinate.Y,
-                                                          node.Coordinate.Z
-                                                      )
-                                                  }
-                                              )
-                                              .ToList()
-                                  }
-                              )
-                              .ToList();
-
-            clonedElements.Add(new FiniteElement { Edges = clonedEdges, Mu = originalElement.Mu });
-        }
-
-        var originalMu = clonedElements[indexToPerturb].Mu;
-        var delta = ComputeDeltaMu(originalMu);
-        clonedElements[indexToPerturb].Mu += delta;
-
-        return new Mesh { Elements = clonedElements };
+        return new() { Elements = elements };
     }
 
-    private static double ComputeDeltaMu(double mu) => 0.1 * Math.Max(1e-8, Math.Abs(mu));
+    private static double ComputeDeltaMu(double mu, int iteration, int maxIterations)
+    {
+        const double maxRelative = 2e-1;
+        const double minRelative = 1e-3;
+
+        double t = (double)iteration / maxIterations;
+        double relative = maxRelative * (1.0 - t) + minRelative * t;
+
+        double delta = relative * Math.Abs(mu);
+        return Math.Max(delta, 1e-10);
+    }
 }

@@ -28,7 +28,7 @@ public class GaussNewtonInversionService(
         IReadOnlyList<FieldSample> trueModelValues,
         IReadOnlyList<CurrentSegment> sources,
         IReadOnlyList<Sensor> sensors,
-        IReadOnlyList<FieldSample> primaryField,
+        IReadOnlyList<FieldSample> emptyValues,
         double baseMu,
         Mesh initialMesh,
         InverseOptions inversionOptions,
@@ -39,7 +39,7 @@ public class GaussNewtonInversionService(
         _timer.Start();
 
         // Истинные значения
-        var trueValues = trueModelValues.Select(s => s.Magnitude).ToArray();
+        // var trueValues = trueModelValues.Select(s => s.Magnitude).ToArray();
         var currentMesh = initialMesh;
 
         double currentFunctional = .0;
@@ -50,22 +50,30 @@ public class GaussNewtonInversionService(
             Console.WriteLine($"\n== Gauss-Newton inversion: iteration[{iteration + 1}] ==");
 
             // Расчёт прямой задачи
-            var anomalySensors = await directTaskService.CalculateDirectTaskAsync(
+            var currentModelValues = await directTaskService.CalculateDirectTaskAsync(
                 currentMesh,
                 sensors,
                 sources,
-                primaryField
+                emptyValues
             );
-            var modelValues = anomalySensors.Select(s => s.Magnitude).ToArray();
+            // var modelValues = anomalySensors.Select(s => s.Magnitude).ToArray();
 
             // Расчёт невязки и вычисление функционала
             currentFunctional = .0;
-            for (var i = 0; i < modelValues.Length; i++)
+            // for (var i = 0; i < modelValues.Length; i++)
+            // {
+            //     var residual = trueValues[i] - modelValues[i];
+            //     var weight = 1; // TODO: заменить на применения весов
+            //
+            //     currentFunctional += residual * residual * weight * weight;
+            // }
+            for (var i = 0; i < currentModelValues.Count; i++)
             {
-                var residual = trueValues[i] - modelValues[i];
-                var weight = 1; // TODO: заменить на применения весов
+                var dBx = currentModelValues[i].Bx - trueModelValues[i].Bx;
+                var dBy = currentModelValues[i].By - trueModelValues[i].By;
+                var dBz = currentModelValues[i].Bz - trueModelValues[i].Bz;
 
-                currentFunctional += residual * residual * weight * weight;
+                currentFunctional += dBx * dBx + dBy * dBy + dBz * dBz;
             }
 
             // Сохранение начального функционала
@@ -76,7 +84,7 @@ public class GaussNewtonInversionService(
             }
 
             // Проверка на нулевой функционал
-            if (currentFunctional == 0)
+            if (Math.Abs(currentFunctional) < 1e-18)
             {
                 Console.WriteLine("The model has true parameters");
                 break;
@@ -84,14 +92,6 @@ public class GaussNewtonInversionService(
 
             // Проверка на достижение искомого функционала
             var functionalDiv = currentFunctional / _initialFunctional;
-
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine(
-                $"Current functional: {currentFunctional:E8}\t|\tInitial functional: {_initialFunctional:E8}\n"
-                + $"(Current functional) / (Initial functional): {functionalDiv}\t|\tFunctional threshold: {inversionOptions.FunctionalThreshold}"
-            );
-            Console.ResetColor();
-
             if (functionalDiv <= inversionOptions.FunctionalThreshold)
             {
                 Console.WriteLine("The desired value of the functional has been achieved");
@@ -99,6 +99,7 @@ public class GaussNewtonInversionService(
             }
 
             // Проверка на стагнацию функционала
+            var iterationStagnation = false;
             if (iteration != 0)
             {
                 var difference = previousFunctional - currentFunctional;
@@ -107,9 +108,12 @@ public class GaussNewtonInversionService(
                 Console.WriteLine($"Difference between previous functional and current functional: {difference:E8}");
                 Console.ResetColor();
 
+                inversionOptions.UseTikhonovSecondOrder = true;
                 if (Math.Abs(difference) < inversionOptions.RelativeTolerance)
                 {
                     Console.WriteLine("Small relative change in functional");
+                    iterationStagnation = true;
+                    inversionOptions.UseTikhonovSecondOrder = false;
                 }
             }
 
@@ -120,36 +124,70 @@ public class GaussNewtonInversionService(
                 break;
             }
 
+            // Лог по итерации
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Console.WriteLine(
+                $"Current functional: {currentFunctional:E8}\t|\tInitial functional: {_initialFunctional:E8}\n\r"
+                + $"(Current functional) / (Initial functional): {functionalDiv}\t|\tFunctional threshold: {inversionOptions.FunctionalThreshold}\n\r"
+                + $"Tikhonov first is enable: {inversionOptions.UseTikhonovFirstOrder}\tTikhonov second is enable: {inversionOptions.UseTikhonovSecondOrder}"
+            );
+            Console.ResetColor();
+
             previousFunctional = currentFunctional;
 
             // Построение A
             Console.WriteLine("Calculating jacobian was started");
             var timer = Stopwatch.StartNew();
+
             var matrixJ = await gaussNewtonJacobianService.BuildAsync(
+                iteration,
+                inversionOptions.MaxIterations,
                 currentMesh,
                 sensors,
                 sources,
-                modelValues,
-                primaryField
+                currentModelValues,
+                emptyValues
             );
+
             timer.Stop();
             Console.WriteLine($"Calculating jacobian was finished in time: {timer.Elapsed.TotalMinutes} minutes");
 
             // Текущие параметры модели
             var modelParameters = currentMesh.Elements.Select(c => c.Mu).ToArray();
 
-            // Итерация метода Гаусса–Ньютона (Решение обратной задачи)
+            // Итерация метода Гаусса–Ньютона
+            var observedValues = trueModelValues
+                                 .SelectMany(v => new[]
+                                     {
+                                         v.Bx,
+                                         v.By,
+                                         v.Bz
+                                     }
+                                 )
+                                 .ToArray();
+
+            var modelValues = currentModelValues
+                              .SelectMany(v => new[]
+                                  {
+                                      v.Bx,
+                                      v.By,
+                                      v.Bz
+                                  }
+                              )
+                              .ToArray();
+
             var updatedMu = inversionService.Invert(
                 currentMesh,
                 modelValues,
-                trueValues,
+                observedValues,
                 matrixJ,
-                modelParameters, // текущие значения мю
+                modelParameters, // текущие значения mu
                 inversionOptions,
-                iteration
+                iteration,
+                iterationStagnation
             );
 
-            // Обновляем плотности ячеек
+            // Обновляем mu ячеек
             for (int j = 0; j < currentMesh.Elements.Count; j++)
                 currentMesh.Elements[j].Mu = updatedMu[j];
 
@@ -164,13 +202,13 @@ public class GaussNewtonInversionService(
         Console.WriteLine($"Initial functional: {_initialFunctional:E8}\t|\tLast functional: {currentFunctional:E8}");
         Console.ResetColor();
 
-        Console.WriteLine("Functionals:");
+        Console.WriteLine("Functional list:");
         foreach (var functional in _functionalList)
             Console.WriteLine($"{functional.Key}: {functional.Value:E8}");
 
         await ShowPlotAsync(currentMesh, sensors);
 
-        var values = await directTaskService.CalculateDirectTaskAsync(currentMesh, sensors, sources, primaryField);
+        var values = await directTaskService.CalculateDirectTaskAsync(currentMesh, sensors, sources, emptyValues);
         await ShowValuesAsync(values);
     }
 

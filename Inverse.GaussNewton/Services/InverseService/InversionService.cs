@@ -16,34 +16,37 @@ public class InversionService : IInversionService
         double[,] jacobianRaw,
         double[] parameters,
         InverseOptions options,
-        int iterationNumber
+        int iterationNumber,
+        bool iterationStagnation
     )
     {
+        int m3 = observedValues.Length; // = 3 * m
         int n = parameters.Length;
 
-        // Вычисляем вектор невязки r = eps_observed - eps_model = невязка между измерениями и модельным откликом
         var residual = Vector<double>.Build.DenseOfEnumerable(
             observedValues.Zip(modelValues, (obs, calc) => obs - calc)
         );
 
         var J = Matrix<double>.Build.DenseOfArray(jacobianRaw);
 
-        // Вычисляем A = J^T * J и b = J^T * r
+        // J^T * J и J^T * r
         var JT = J.Transpose();
         var JTJ = JT * J;
         var JTr = JT * residual;
 
-        // Вычисляем лямбду с учётом динамического затухания
+        // Динамическая регуляризация
         var baseLambda = options.Lambda;
-        var effectiveLambda = baseLambda;
-
+        double effectiveLambda;
         if (options.AutoAdjustRegularization)
         {
-            effectiveLambda = baseLambda * Math.Pow(options.LambdaDecay, iterationNumber);
-            effectiveLambda = Math.Max(effectiveLambda, options.MinLambda);
+            effectiveLambda = iterationStagnation
+                ? Math.Max(baseLambda / Math.Pow(options.LambdaDecay, iterationNumber), options.MaxLambda)
+                : Math.Max(baseLambda * Math.Pow(options.LambdaDecay, iterationNumber), options.MinLambda);
         }
+        else
+            effectiveLambda = baseLambda;
 
-        // Добавляем регуляризацию на величину mu (Тихонов 1)
+        // Регуляризация Тихонова 1-го порядка
         if (options.UseTikhonovFirstOrder)
         {
             Console.ForegroundColor = ConsoleColor.Cyan;
@@ -53,20 +56,17 @@ public class InversionService : IInversionService
             Console.ResetColor();
         }
 
-        // Добавляем сглаживающую регуляризацию по кривизне mu (Тихонов 2)
+        // Регуляризация Тихонова 2-го порядка
         if (options.UseTikhonovSecondOrder)
         {
             Console.ForegroundColor = ConsoleColor.Cyan;
-            var gamma = effectiveLambda * options.SecondOrderRegularizationLambdaMultiplier;
+            double gamma = effectiveLambda * options.SecondOrderRegularizationLambdaMultiplier;
             Console.WriteLine($"Using Tikhonov second order: gamma = {gamma}");
             AddTikhonovSecondOrderRegularization(JTJ, mesh, gamma);
             Console.ResetColor();
         }
 
-        // Решаем СЛАУ
         var delta = JTJ.Solve(JTr);
-
-        // Обновляем параметры модели
         return parameters.Zip(delta, (p, d) => p + d).ToArray();
     }
 
